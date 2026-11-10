@@ -97,6 +97,7 @@ pub struct ServiceDetail {
     pub project: Option<String>,
     pub service: Option<String>,
     pub redeploy_blocker: Option<String>,
+    pub is_self: bool,
     pub image_id: Option<String>,
     pub command: Option<String>,
     pub created: Option<String>,

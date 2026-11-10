@@ -9,6 +9,8 @@ services:
     # Host networking, so 127.0.0.1:5050 is the server's own loopback (reach it via an SSH tunnel).
     network_mode: host
     env_file: .env
+    labels:
+      dev.aeonlogics.explorer.self: "true"
     environment:
       DOCKER_CONFIG: /tmp/docker
     group_add:

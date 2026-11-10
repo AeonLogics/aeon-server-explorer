@@ -58,7 +58,6 @@ pub fn ChangePasswordPage(email: String) -> impl IntoView {
 
     view! {
         <AuthFrame>
-            <span class="eyebrow"><span class="eyebrow__dot"></span>"FIRST SIGN-IN"</span>
             <h1 class="auth__title">"Choose your own password"</h1>
             <p class="auth__lead">
                 "The starting password came from "<code>"ADMIN_PASSWORD"</code>". Replace it before you continue, "

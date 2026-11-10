@@ -13,8 +13,11 @@ use bollard::query_parameters::{
 use shared::docker::Action;
 use shared::errors::docker::DockerError;
 
-use super::{LABEL_CONFIG_FILES, LABEL_PROJECT, LABEL_SERVICE, LABEL_WORKING_DIR, map_err};
+use super::{LABEL_CONFIG_FILES, LABEL_PROJECT, LABEL_SELF, LABEL_SERVICE, LABEL_WORKING_DIR, map_err};
 
+// It can't stop or replace the container it runs in: the UI would vanish mid-action.
+const SELF_STOP: &str = "This is the explorer itself. Stopping it would switch off this page; stop it over SSH instead.";
+const SELF_REDEPLOY: &str = "This is the explorer itself. Update it from your PC (docker build, then compose up on the server).";
 const PULL_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 const UP_TIMEOUT: Duration = Duration::from_secs(5 * 60);
 
@@ -26,6 +29,7 @@ pub struct Target {
     pub service: Option<String>,
     pub working_dir: Option<String>,
     pub config_files: Vec<String>,
+    pub is_self: bool,
 }
 
 impl Target {
@@ -45,6 +49,7 @@ impl Target {
                         .collect()
                 })
                 .unwrap_or_default(),
+            is_self: labels.get(LABEL_SELF).is_some_and(|v| v == "true"),
         }
     }
 
@@ -57,6 +62,9 @@ impl Target {
 
     // Why redeploy can't run here, if it can't.
     pub fn redeploy_blocker(&self) -> Option<String> {
+        if self.is_self {
+            return Some(SELF_REDEPLOY.into());
+        }
         if self.project.is_none() || self.service.is_none() || self.working_dir.is_none() {
             return Some("Not started by docker compose, so there's no file to redeploy from.".into());
         }
@@ -111,6 +119,9 @@ impl Drop for Busy {
 }
 
 pub async fn run(docker: &Docker, target: &Target, action: Action) -> Result<(), DockerError> {
+    if target.is_self && action == Action::Stop {
+        return Err(DockerError::Failed(SELF_STOP.into()));
+    }
     let _busy = Busy::claim(target.project.clone().unwrap_or_else(|| target.container.clone()))?;
     let name = target.container.as_str();
 

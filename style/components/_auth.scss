@@ -1,72 +1,28 @@
 @use '../base' as *;
 
 .auth {
-  position: relative;
   display: grid;
   place-items: center;
   min-height: 100vh;
   padding: space(8) space(4);
-  overflow: hidden;
-
-  &__orb {
-    position: absolute;
-    border-radius: 50%;
-    filter: blur(80px);
-    pointer-events: none;
-
-    &--one {
-      top: -18rem;
-      left: 50%;
-      width: 46rem;
-      height: 34rem;
-      background: rgba(124, 77, 234, 0.32);
-      transform: translateX(-60%);
-      animation: drift 18s ease-in-out infinite alternate;
-    }
-
-    &--two {
-      right: -12rem;
-      bottom: -14rem;
-      width: 36rem;
-      height: 30rem;
-      background: rgba(91, 43, 176, 0.28);
-      animation: drift 22s ease-in-out infinite alternate-reverse;
-    }
-  }
-
-  &__grid {
-    position: absolute;
-    inset: 0;
-    background: radial-gradient(circle at 1px 1px, rgba(236, 228, 255, 0.06) 1px, transparent 0) 0 0 / 24px 24px;
-    mask-image: radial-gradient(ellipse at center, #000 20%, transparent 70%);
-    pointer-events: none;
-  }
 
   &__wrap {
-    position: relative;
     display: grid;
-    gap: space(6);
-    width: min(100%, 27rem);
-    animation: rise 0.5s $ease both;
+    gap: space(5);
+    width: min(100%, 25rem);
   }
 
   &__brand {
     display: flex;
     align-items: center;
-    justify-content: center;
     gap: space(3);
   }
 
   &__card {
     display: grid;
-    gap: space(3);
+    gap: space(2);
     padding: space(8);
-    background: linear-gradient(180deg, rgba(31, 23, 45, 0.82), rgba(17, 12, 26, 0.88));
-    border: 1px solid rgba(162, 123, 244, 0.18);
-    border-radius: 1.5rem;
-    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06) inset, 0 40px 100px -40px rgba(0, 0, 0, 0.9),
-      0 30px 80px -50px $accent-glow;
-    backdrop-filter: blur(24px);
+    @include sheet;
 
     @include down(sm) {
       padding: space(6) space(5);
@@ -74,27 +30,23 @@
   }
 
   &__title {
-    margin-top: space(2);
     font-family: $font-display;
-    font-size: 1.875rem;
+    font-size: 1.625rem;
     font-weight: 600;
-    letter-spacing: -0.035em;
-    line-height: 1.15;
+    letter-spacing: -0.025em;
+    line-height: 1.2;
   }
 
   &__lead {
     color: $muted;
-    font-size: $text-base;
 
     code {
-      padding: 0.1rem 0.35rem;
-      background: rgba(236, 228, 255, 0.06);
-      border-radius: 0.25rem;
-      color: $accent-text;
+      padding: 0.05rem 0.3rem;
+      background: $sunken-2;
+      border-radius: 3px;
     }
 
     strong {
-      color: $text;
       font-weight: 600;
     }
   }
@@ -102,49 +54,14 @@
   &__form {
     display: grid;
     gap: space(5);
-    margin-top: space(4);
-
-    .btn--primary {
-      margin-top: space(1);
-    }
+    margin-top: space(5);
   }
 
   &__foot {
     display: flex;
     align-items: center;
-    justify-content: center;
     gap: space(2);
     color: $faint;
     font-size: $text-xs;
-
-    .ico {
-      color: $ok;
-    }
-  }
-}
-
-.meter {
-  height: 4px;
-  overflow: hidden;
-  background: rgba(236, 228, 255, 0.07);
-  border-radius: 999px;
-
-  &__fill {
-    display: block;
-    height: 100%;
-    border-radius: inherit;
-    background: linear-gradient(90deg, $warn, #ffd88a);
-    transition: width 0.25s $ease, background 0.25s ease;
-  }
-
-  &.is-done &__fill {
-    background: linear-gradient(90deg, $ok, #9cf5cd);
-    box-shadow: 0 0 12px rgba(61, 220, 151, 0.5);
-  }
-}
-
-@keyframes drift {
-  to {
-    transform: translate(-40%, 3rem) scale(1.08);
   }
 }

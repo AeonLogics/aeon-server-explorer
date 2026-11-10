@@ -6,7 +6,7 @@ use leptos_router::{
 };
 
 use crate::components::auth::AuthState;
-use crate::pages::{AuditPage, Gate, NotFound, OverviewPage, ProjectPage, ServicePanel};
+use crate::pages::{AuditPage, Gate, NotFound, OverviewPage, ProjectPage, ServicePage};
 
 pub fn shell(options: LeptosOptions) -> impl IntoView {
     view! {
@@ -15,7 +15,7 @@ pub fn shell(options: LeptosOptions) -> impl IntoView {
             <head>
                 <meta charset="utf-8"/>
                 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-                <meta name="theme-color" content="#0e0a16"/>
+                <meta name="theme-color" content="#f4f2f9"/>
                 <meta name="robots" content="noindex, nofollow"/>
                 <link rel="icon" href="/favicon.ico" sizes="32x32"/>
                 <link rel="icon" href="/favicon.svg" type="image/svg+xml"/>
@@ -52,10 +52,11 @@ pub fn App() -> impl IntoView {
                 <ParentRoute path=StaticSegment("") view=Gate>
                     <Route path=StaticSegment("") view=OverviewPage />
                     <Route path=StaticSegment("audit") view=AuditPage />
-                    <ParentRoute path=(StaticSegment("p"), ParamSegment("project")) view=ProjectPage>
-                        <Route path=StaticSegment("") view=|| () />
-                        <Route path=(StaticSegment("s"), ParamSegment("container")) view=ServicePanel />
-                    </ParentRoute>
+                    <Route path=(StaticSegment("p"), ParamSegment("project")) view=ProjectPage />
+                    <Route
+                        path=(StaticSegment("p"), ParamSegment("project"), StaticSegment("s"), ParamSegment("container"))
+                        view=ServicePage
+                    />
                 </ParentRoute>
             </Routes>
         </Router>

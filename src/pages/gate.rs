@@ -56,7 +56,6 @@ fn AppShell(admin: Admin) -> impl IntoView {
 
     view! {
         <div class="app" class:is-nav-open=move || nav_open.get()>
-            <div class="ambient" aria-hidden="true"></div>
             <header class="topbar">
                 <button
                     type="button"

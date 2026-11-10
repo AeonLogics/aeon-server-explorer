@@ -40,8 +40,7 @@ pub fn LoginPage() -> impl IntoView {
 
     view! {
         <AuthFrame>
-            <span class="eyebrow"><span class="eyebrow__dot"></span>"LOCAL ACCESS ONLY"</span>
-            <h1 class="auth__title">"Welcome back"</h1>
+            <h1 class="auth__title">"Sign in"</h1>
             <p class="auth__lead">"Sign in to see everything running on your server."</p>
 
             <form class="auth__form" on:submit=on_submit>
@@ -121,9 +120,6 @@ pub fn RevealToggle(reveal: RwSignal<bool>) -> impl IntoView {
 pub fn AuthFrame(children: Children) -> impl IntoView {
     view! {
         <div class="auth">
-            <div class="auth__orb auth__orb--one" aria-hidden="true"></div>
-            <div class="auth__orb auth__orb--two" aria-hidden="true"></div>
-            <div class="auth__grid" aria-hidden="true"></div>
 
             <main class="auth__wrap">
                 <div class="auth__brand">

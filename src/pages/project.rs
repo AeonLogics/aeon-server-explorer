@@ -1,110 +1,92 @@
 use leptos::prelude::*;
-use leptos_router::components::Outlet;
 use leptos_router::hooks::use_location;
 use shared::docker::{ProjectDetail, ServiceCard as Card, ServiceKind};
 
 use super::common::{CardSkeletons, DockerProblem};
-use super::overview::RefreshPill;
 use crate::api::docker::get_project;
 use crate::components::chips::{NetworkChip, PortChip};
 use crate::components::icon::Ico;
 use crate::components::poll::{route_parts, watch_session, Tick};
-use crate::components::status::{HealthBadge, StatusDot};
+use crate::components::status::HealthBadge;
 
 #[component]
 pub fn ProjectPage() -> impl IntoView {
     let location = use_location();
     let tick = Tick::signal();
-    let route = Memo::new(move |_| route_parts(&location.pathname.get()));
-    let slug = Memo::new(move |_| route.get().0.unwrap_or_default());
-    let selected = Memo::new(move |_| route.get().1);
+    let slug = Memo::new(move |_| route_parts(&location.pathname.get()).0.unwrap_or_default());
 
     let project = Resource::new(move || (slug.get(), tick.get()), |(slug, _)| get_project(slug));
     watch_session(move || project.get().and_then(Result::err));
 
     view! {
-        <div class="page page--project" class:has-panel=move || selected.get().is_some()>
+        <div class="page">
             <Transition fallback=|| view! { <CardSkeletons count=4 /> }>
                 {move || {
                     project
                         .get()
                         .map(|result| match result {
-                            Ok(detail) => view! { <ProjectBody detail selected /> }.into_any(),
+                            Ok(detail) => view! { <ProjectBody detail /> }.into_any(),
                             Err(error) => view! { <DockerProblem error /> }.into_any(),
                         })
                 }}
             </Transition>
-            <Outlet />
         </div>
     }
 }
 
 #[component]
-fn ProjectBody(detail: ProjectDetail, selected: Memo<Option<String>>) -> impl IntoView {
+fn ProjectBody(detail: ProjectDetail) -> impl IntoView {
     let summary = detail.summary;
     let slug = summary.slug.clone();
 
     view! {
+        <nav class="crumbs" aria-label="Breadcrumb">
+            <a href="/">"Overview"</a>
+            <span aria-hidden="true">"/"</span>
+            <span>{summary.name.clone()}</span>
+        </nav>
+
         <header class="page__head">
             <div class="page__titles">
-                <nav class="crumbs" aria-label="Breadcrumb">
-                    <a href="/">"Overview"</a>
-                    <Ico icon=icondata::LuChevronRight />
-                    <span>"Project"</span>
-                </nav>
-                <h1 class="page__title">
-                    <StatusDot health=summary.health pulse=true />
-                    {summary.name.clone()}
-                </h1>
-                <div class="page__meta">
-                    <span class="meta-pill">
-                        <Ico icon=icondata::LuActivity />
-                        {format!("{} of {} running", summary.running, summary.total)}
-                    </span>
+                <h1 class="page__title">{summary.name.clone()}</h1>
+                <p class="page__meta">
+                    <span>{format!("{} of {} running", summary.running, summary.total)}</span>
                     {detail.working_dir.map(|dir| view! {
-                        <span class="meta-pill meta-pill--mono" title="Compose working directory">
-                            <Ico icon=icondata::LuFolder />{dir}
-                        </span>
+                        <span class="page__meta-mono" title="Compose working directory">{dir}</span>
                     })}
-                    {(summary.exposed_ports > 0).then(|| view! {
-                        <span class="meta-pill is-warn">
-                            <Ico icon=icondata::LuTriangleAlert />
-                            {format!("{} port(s) beyond localhost", summary.exposed_ports)}
-                        </span>
-                    })}
-                </div>
+                </p>
             </div>
-            <RefreshPill />
+            {(summary.exposed_ports > 0).then(|| view! {
+                <p class="notice notice--warn">
+                    <Ico icon=icondata::LuTriangleAlert />
+                    {format!(
+                        "{} port{} published beyond localhost",
+                        summary.exposed_ports,
+                        if summary.exposed_ports == 1 { "" } else { "s" }
+                    )}
+                </p>
+            })}
         </header>
 
         <div class="grid grid--services">
             {detail
                 .services
                 .into_iter()
-                .map(|card| {
-                    let name = card.container_name.clone();
-                    let active = Signal::derive(move || selected.get().as_deref() == Some(name.as_str()));
-                    view! { <ServiceCard card slug=slug.clone() active /> }
-                })
+                .map(|card| view! { <ServiceCard card slug=slug.clone() /> })
                 .collect_view()}
         </div>
     }
 }
 
 #[component]
-fn ServiceCard(card: Card, slug: String, active: Signal<bool>) -> impl IntoView {
+fn ServiceCard(card: Card, slug: String) -> impl IntoView {
     let href = format!("/p/{slug}/s/{}", card.container_name);
-    let (kind_icon, kind_class) = kind_style(card.kind);
+    let (kind_icon, kind_label) = kind_style(card.kind);
 
     view! {
-        <a
-            class=format!("svc {}", card.health.class())
-            class:is-active=move || active.get()
-            href=href
-            aria-current=move || active.get().then_some("page")
-        >
+        <a class=format!("svc {}", card.health.class()) href=href>
             <div class="svc__head">
-                <span class=format!("svc__icon {kind_class}")><Ico icon=kind_icon /></span>
+                <span class="svc__kind" title=kind_label><Ico icon=kind_icon /></span>
                 <span class="svc__titles">
                     <strong class="svc__name">{card.name.clone()}</strong>
                     <span class="svc__container">{card.container_name.clone()}</span>
@@ -112,45 +94,46 @@ fn ServiceCard(card: Card, slug: String, active: Signal<bool>) -> impl IntoView 
                 <HealthBadge health=card.health label=card.health_label.clone() />
             </div>
 
-            <div class="svc__image" title=card.image.clone()>
-                <Ico icon=icondata::LuPackage />
-                <span>{card.image.clone()}</span>
-            </div>
-
-            <div class="svc__status">
-                <Ico icon=icondata::LuClock />
-                <span>{card.status_text.clone()}</span>
-            </div>
-
-            <div class="svc__group">
-                <span class="label">"PORTS"</span>
-                <div class="chips">
+            <dl class="svc__facts">
+                <dt>"Image"</dt>
+                <dd class="is-mono" title=card.image.clone()>{card.image.clone()}</dd>
+                <dt>"Status"</dt>
+                <dd>{card.status_text.clone()}</dd>
+                <dt>"Ports"</dt>
+                <dd>
                     {if card.ports.is_empty() {
-                        view! { <span class="chips__none">"none"</span> }.into_any()
+                        view! { <span class="svc__none">"none"</span> }.into_any()
                     } else {
-                        card.ports.into_iter().map(|port| view! { <PortChip port /> }).collect_view().into_any()
+                        view! {
+                            <span class="chips">
+                                {card.ports.into_iter().map(|port| view! { <PortChip port /> }).collect_view()}
+                            </span>
+                        }
+                        .into_any()
                     }}
-                </div>
-            </div>
-
-            <div class="svc__group">
-                <span class="label">"NETWORKS"</span>
-                <div class="chips">
+                </dd>
+                <dt>"Networks"</dt>
+                <dd>
                     {if card.networks.is_empty() {
-                        view! { <span class="chips__none">"none"</span> }.into_any()
+                        view! { <span class="svc__none">"none"</span> }.into_any()
                     } else {
-                        card.networks.into_iter().map(|name| view! { <NetworkChip name /> }).collect_view().into_any()
+                        view! {
+                            <span class="chips">
+                                {card.networks.into_iter().map(|name| view! { <NetworkChip name /> }).collect_view()}
+                            </span>
+                        }
+                        .into_any()
                     }}
-                </div>
-            </div>
+                </dd>
+            </dl>
         </a>
     }
 }
 
 pub fn kind_style(kind: ServiceKind) -> (icondata::Icon, &'static str) {
     match kind {
-        ServiceKind::Database => (icondata::LuDatabase, "is-db"),
-        ServiceKind::Proxy => (icondata::LuGlobe, "is-proxy"),
-        ServiceKind::App => (icondata::LuBox, "is-app"),
+        ServiceKind::Database => (icondata::LuDatabase, "Database"),
+        ServiceKind::Proxy => (icondata::LuGlobe, "Proxy"),
+        ServiceKind::App => (icondata::LuBox, "App"),
     }
 }

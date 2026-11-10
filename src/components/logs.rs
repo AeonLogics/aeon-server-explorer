@@ -170,7 +170,7 @@ pub fn LogViewer(container: String, #[prop(optional)] reconnect: Option<Callback
         <div class="logs" class:is-nowrap=move || !wrap.get()>
             <div class="logs__bar">
                 <span class="logs__status">
-                    <span class=move || format!("dot {}", status().0) class:dot--pulse=move || status().0 == "is-ok"></span>
+                    <span class=move || format!("dot {}", status().0)></span>
                     {move || status().1}
                 </span>
                 {reconnect.map(|reconnect| {

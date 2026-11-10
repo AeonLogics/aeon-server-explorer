@@ -1,11 +1,12 @@
 @use '../base' as *;
 
-.tiles {
+.summary {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: space(4);
+  margin-bottom: space(8);
+  @include sheet;
 
-  @include down(xl) {
+  @include down(lg) {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -14,61 +15,36 @@
   }
 }
 
-.tile {
-  --tone: #{$ok};
-  position: relative;
+.stat {
   display: grid;
   gap: space(1);
-  padding: space(5);
-  overflow: hidden;
-  background: linear-gradient(160deg, rgba(36, 27, 52, 0.75), rgba(21, 16, 32, 0.9));
-  border: 1px solid $line;
-  border-radius: $radius-lg;
-  box-shadow: $shadow-card;
+  padding: space(5) space(6);
+  border-left: 1px solid $line;
 
-  &.is-warn {
-    --tone: #{$warn};
+  &:first-child {
+    border-left: 0;
   }
 
-  &.is-down {
-    --tone: #{$down};
+  @include down(lg) {
+    &:nth-child(odd) {
+      border-left: 0;
+    }
+
+    &:nth-child(n + 3) {
+      border-top: 1px solid $line;
+    }
   }
 
-  &::after {
-    content: '';
-    position: absolute;
-    top: -40%;
-    right: -20%;
-    width: 60%;
-    aspect-ratio: 1;
-    border-radius: 50%;
-    background: radial-gradient(circle, color-mix(in srgb, var(--tone) 16%, transparent), transparent 70%);
-    pointer-events: none;
-  }
-
-  &__head {
-    display: flex;
-    align-items: center;
-    gap: space(2);
-    margin-bottom: space(2);
-  }
-
-  &__icon {
-    display: grid;
-    place-items: center;
-    width: 1.875rem;
-    height: 1.875rem;
-    background: color-mix(in srgb, var(--tone) 14%, transparent);
-    border-radius: $radius-sm;
-    color: var(--tone);
+  &__label {
+    @include mono-label;
   }
 
   &__value {
     font-family: $font-display;
-    font-size: 2.25rem;
+    font-size: 2rem;
     font-weight: 600;
-    letter-spacing: -0.04em;
-    line-height: 1;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
     font-variant-numeric: tabular-nums;
   }
 
@@ -77,114 +53,101 @@
     font-size: $text-sm;
   }
 
-  &__meter {
-    height: 4px;
-    margin-top: space(3);
-    overflow: hidden;
-    background: rgba(236, 228, 255, 0.06);
-    border-radius: 999px;
+  &.is-warn &__value {
+    color: $warn;
+  }
 
-    span {
-      display: block;
-      height: 100%;
-      border-radius: inherit;
-      background: linear-gradient(90deg, var(--tone), color-mix(in srgb, var(--tone) 60%, #fff));
-      transition: width 0.6s $ease;
-    }
+  &.is-down &__value {
+    color: $down;
   }
 }
 
-.project-card {
-  position: relative;
-  display: grid;
-  gap: space(4);
-  padding: space(5);
-  background: linear-gradient(165deg, rgba(31, 23, 45, 0.85), rgba(19, 14, 29, 0.92));
-  border: 1px solid $line;
-  border-radius: $radius-lg;
-  box-shadow: $shadow-card;
-  transition: transform 0.25s $ease, border-color 0.2s ease, box-shadow 0.25s ease;
-  @include focus-ring;
+.table {
+  overflow: hidden;
+  @include sheet;
 
-  &:hover {
-    transform: translateY(-2px);
-    border-color: $line-hover;
-    box-shadow: $shadow-lift;
-  }
-
-  &__head {
-    display: flex;
-    align-items: center;
-    gap: space(3);
-  }
-
-  &__icon {
+  &__row {
     display: grid;
-    place-items: center;
-    width: 2.25rem;
-    height: 2.25rem;
-    background: $accent-wash;
-    border: 1px solid rgba(162, 123, 244, 0.2);
-    border-radius: 0.625rem;
-    color: $accent-text;
-  }
+    grid-template-columns: minmax(12rem, 2fr) 7rem minmax(10rem, 2fr) 2rem;
+    align-items: center;
+    gap: space(4);
+    min-height: 3.25rem;
+    padding: 0 space(5);
+    border-top: 1px solid $line;
+    transition: background-color 0.12s ease;
+    @include focus-ring;
 
-  &__name {
-    flex: 1;
-    min-width: 0;
-    font-family: $font-display;
-    font-size: 1.125rem;
-    font-weight: 600;
-    letter-spacing: -0.02em;
-    @include truncate;
-  }
+    &:first-child {
+      border-top: 0;
+    }
 
-  &__meter {
-    height: 4px;
-    overflow: hidden;
-    background: rgba(236, 228, 255, 0.06);
-    border-radius: 999px;
+    &:not(.table__row--head):hover {
+      background: $sunken;
+    }
 
-    span {
-      display: block;
-      height: 100%;
-      border-radius: inherit;
-      background: $ok;
-      box-shadow: 0 0 12px rgba(61, 220, 151, 0.5);
+    &--head {
+      min-height: 2.5rem;
+      background: $sunken;
+      @include mono-label;
+    }
+
+    @include down(md) {
+      grid-template-columns: minmax(0, 1fr) auto;
+      padding: space(3) space(4);
+
+      &--head {
+        display: none;
+      }
     }
   }
 
-  &.is-warn &__meter span {
-    background: $warn;
-    box-shadow: 0 0 12px rgba(245, 184, 74, 0.45);
-  }
-
-  &.is-down &__meter span {
-    background: $down;
-  }
-
-  &__foot {
+  &__name {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: space(2);
-    color: $faint;
+    gap: space(3);
+    min-width: 0;
+    font-weight: 500;
+
+    span:last-child {
+      @include truncate;
+    }
+
+    .is-standalone {
+      color: $faint;
+      font-weight: 400;
+    }
+  }
+
+  &__mono {
+    color: $muted;
+    font-family: $font-mono;
+    font-size: $text-xs;
+  }
+
+  &__note {
+    color: $warn;
     font-size: $text-sm;
-  }
+    @include truncate;
 
-  &__flags {
-    display: flex;
-    align-items: center;
-    gap: space(2);
+    &.is-calm {
+      color: $disabled;
+    }
+
+    @include down(md) {
+      grid-column: 1 / -1;
+    }
   }
 
   &__go {
-    color: $faint;
-    transition: transform 0.2s $ease, color 0.2s ease;
+    justify-self: end;
+    color: $disabled;
+
+    @include down(md) {
+      display: none;
+    }
   }
 
-  &:hover &__go {
-    color: $accent-text;
-    transform: translateX(3px);
+  &__row:hover &__go {
+    color: $accent;
   }
 }

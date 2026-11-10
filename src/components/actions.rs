@@ -22,6 +22,7 @@ pub fn ActionBar(
     };
     let running = move || detail.with(|d| d.as_ref().is_some_and(|d| d.card.state == "running"));
     let blocker = move || detail.with(|d| d.as_ref().and_then(|d| d.redeploy_blocker.clone()));
+    let is_self = move || detail.with(|d| d.as_ref().is_some_and(|d| d.is_self));
     let busy = move || act.pending().get();
 
     let dispatch = move |action: Action, confirm: Option<String>| {
@@ -100,10 +101,12 @@ pub fn ActionBar(
                     <Ico icon=icondata::LuRotateCcw />
                     {move || button_label(Action::Restart)}
                 </button>
-                <button type="button" class="act act--danger" disabled=busy on:click=move |_| open(Action::Stop)>
-                    <Ico icon=icondata::LuSquare />
-                    {move || button_label(Action::Stop)}
-                </button>
+                <Show when=move || !is_self()>
+                    <button type="button" class="act act--danger" disabled=busy on:click=move |_| open(Action::Stop)>
+                        <Ico icon=icondata::LuSquare />
+                        {move || button_label(Action::Stop)}
+                    </button>
+                </Show>
             </Show>
             <button
                 type="button"

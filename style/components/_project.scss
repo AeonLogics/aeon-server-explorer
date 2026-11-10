@@ -1,0 +1,86 @@
+@use '../base' as *;
+
+.svc {
+  display: grid;
+  align-content: start;
+  gap: space(4);
+  padding: space(5);
+  transition: border-color 0.15s ease;
+  @include sheet;
+  @include focus-ring;
+
+  &:hover {
+    border-color: $line-strong;
+  }
+
+  &.is-down:not(:hover) &__name {
+    color: $muted;
+  }
+
+  &__head {
+    display: flex;
+    align-items: flex-start;
+    gap: space(3);
+  }
+
+  &__kind {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 2rem;
+    height: 2rem;
+    background: $sunken-2;
+    border-radius: $radius;
+    color: $muted;
+  }
+
+  &__titles {
+    display: grid;
+    flex: 1;
+    min-width: 0;
+    line-height: 1.35;
+  }
+
+  &__name {
+    font-size: $text-md;
+    font-weight: 600;
+    @include truncate;
+  }
+
+  &__container {
+    color: $faint;
+    font-family: $font-mono;
+    font-size: $text-2xs;
+    @include truncate;
+  }
+
+  &__facts {
+    display: grid;
+    grid-template-columns: 4.75rem minmax(0, 1fr);
+    gap: space(2) space(3);
+    padding-top: space(4);
+    border-top: 1px solid $line;
+    font-size: $text-sm;
+
+    dt {
+      color: $faint;
+      line-height: 1.5rem;
+    }
+
+    dd {
+      min-width: 0;
+      line-height: 1.5rem;
+      color: $muted;
+
+      &.is-mono {
+        font-family: $font-mono;
+        font-size: $text-xs;
+        @include truncate;
+      }
+    }
+  }
+
+  &__none {
+    color: $disabled;
+  }
+}

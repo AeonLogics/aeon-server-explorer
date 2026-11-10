@@ -96,6 +96,7 @@ pub async fn service(docker: &Docker, id: &str) -> Result<ServiceDetail, DockerE
         project: labels.get(LABEL_PROJECT).cloned(),
         service: target.service.clone(),
         redeploy_blocker: target.redeploy_blocker(),
+        is_self: target.is_self,
         image_id: inspect.image.clone(),
         command: summary.command.clone().filter(|c| !c.is_empty()),
         created,

@@ -3,23 +3,20 @@
 .logs {
   position: relative;
   display: flex;
-  flex: 1;
   flex-direction: column;
-  min-height: 0;
-  margin: space(4) space(5) space(5);
+  height: max(26rem, calc(100vh - 21rem));
   overflow: hidden;
-  background: $terminal;
-  border: 1px solid $line-strong;
+  background: $sunken;
+  border: 1px solid $line;
   border-radius: $radius;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4), 0 20px 50px -30px rgba(0, 0, 0, 0.9) inset;
 
   &__bar {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: space(3);
-    padding: space(2) space(2) space(2) space(4);
-    background: linear-gradient(180deg, rgba(36, 27, 52, 0.55), rgba(21, 16, 32, 0.4));
+    padding: space(2) space(2) space(2) space(3);
+    background: $sheet;
     border-bottom: 1px solid $line;
   }
 
@@ -28,7 +25,6 @@
     align-items: center;
     gap: space(2);
     color: $muted;
-    font-family: $font-mono;
     font-size: $text-xs;
     white-space: nowrap;
   }
@@ -42,19 +38,19 @@
 
     .ico {
       position: absolute;
-      left: space(3);
+      left: space(2);
       color: $faint;
-      font-size: 0.8rem;
+      font-size: 0.75rem;
       pointer-events: none;
     }
 
     input {
       width: 100%;
-      height: 2rem;
-      padding: 0 space(3) 0 2rem;
-      background: rgba(8, 6, 13, 0.6);
-      border: 1px solid $line;
-      border-radius: $radius-xs;
+      height: 1.875rem;
+      padding: 0 space(2) 0 1.6rem;
+      background: $sunken;
+      border: 1px solid transparent;
+      border-radius: $radius-sm;
       font-family: $font-mono;
       font-size: $text-xs;
 
@@ -64,7 +60,8 @@
 
       &:focus {
         outline: none;
-        border-color: rgba(162, 123, 244, 0.55);
+        background: $sheet;
+        border-color: $control-border;
       }
     }
   }
@@ -77,11 +74,11 @@
   &__screen {
     flex: 1;
     min-height: 0;
-    padding: space(3) 0;
+    padding: space(2) 0;
     overflow: auto;
     font-family: $font-mono;
-    font-size: 0.78rem;
-    line-height: 1.6;
+    font-size: 0.75rem;
+    line-height: 1.65;
     @include scrollbar;
   }
 
@@ -95,31 +92,33 @@
 
   &__jump {
     position: absolute;
-    left: 50%;
-    bottom: 3rem;
+    right: space(4);
+    bottom: 2.75rem;
     display: inline-flex;
     align-items: center;
     gap: space(2);
-    height: 2rem;
-    padding: 0 space(4);
-    background: $gradient-accent;
-    border-radius: 999px;
-    color: #fff;
+    height: 1.875rem;
+    padding: 0 space(3);
+    background: $sheet;
+    border: 1px solid $line-strong;
+    border-radius: $radius;
+    color: $text;
     font-size: $text-xs;
-    font-weight: 600;
-    box-shadow: 0 12px 30px -10px $accent-glow;
-    transform: translateX(-50%);
-    animation: rise 0.25s $ease both;
+    font-weight: 500;
+
+    &:hover {
+      border-color: $text;
+    }
   }
 
   &__foot {
     display: flex;
     justify-content: space-between;
     gap: space(3);
-    padding: space(2) space(4);
+    padding: space(2) space(3);
+    background: $sheet;
     border-top: 1px solid $line;
     color: $disabled;
-    font-family: $font-mono;
     font-size: $text-2xs;
   }
 
@@ -130,33 +129,32 @@
 
 .log {
   display: grid;
-  grid-template-columns: 4.75rem minmax(0, 1fr);
+  grid-template-columns: 4.5rem minmax(0, 1fr);
   gap: space(3);
-  padding: 0.05rem space(4);
+  padding: 0 space(3);
   border-left: 2px solid transparent;
 
   &:hover {
-    background: rgba(236, 228, 255, 0.035);
+    background: rgba(27, 21, 48, 0.035);
   }
 
   &__ts {
-    color: #6c6386;
+    color: $disabled;
     user-select: none;
     font-variant-numeric: tabular-nums;
   }
 
   &__msg {
-    color: #ddd6ee;
+    color: $text;
     white-space: pre-wrap;
     overflow-wrap: anywhere;
   }
 
   &.is-err {
-    background: rgba(255, 107, 129, 0.05);
-    border-left-color: rgba(255, 107, 129, 0.6);
+    border-left-color: $down-dot;
 
     .log__msg {
-      color: #ffb7c2;
+      color: $down;
     }
   }
 }
@@ -165,35 +163,31 @@
   display: inline-flex;
   align-items: center;
   gap: space(2);
-  height: 2rem;
-  padding: 0 space(3);
-  border: 1px solid transparent;
-  border-radius: $radius-xs;
+  height: 1.875rem;
+  padding: 0 space(2);
+  border-radius: $radius-sm;
   color: $muted;
   font-size: $text-xs;
   font-weight: 500;
-  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  transition: background-color 0.12s ease, color 0.12s ease;
   @include focus-ring;
 
   &:hover {
-    background: rgba(236, 228, 255, 0.06);
+    background: $sunken-2;
     color: $text;
   }
 
   &.is-active {
     background: $accent-wash;
-    border-color: rgba(162, 123, 244, 0.25);
-    color: $accent-text;
+    color: $accent;
   }
 
   &__count {
-    padding: 0 0.35rem;
-    background: $warn;
-    border-radius: 999px;
-    color: #1b1206;
+    padding: 0 0.3rem;
+    background: $warn-wash;
+    border-radius: 3px;
+    color: $warn;
     font-family: $font-mono;
     font-size: $text-2xs;
-    font-weight: 600;
-    line-height: 1.1rem;
   }
 }

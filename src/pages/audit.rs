@@ -2,7 +2,6 @@ use leptos::prelude::*;
 use shared::docker::AuditEntry;
 
 use super::common::DockerProblem;
-use super::overview::RefreshPill;
 use crate::api::audit::get_audit;
 use crate::components::icon::Ico;
 use crate::components::poll::{watch_session, Tick};
@@ -55,13 +54,11 @@ pub fn AuditPage() -> impl IntoView {
         <div class="page">
             <header class="page__head">
                 <div class="page__titles">
-                    <span class="eyebrow"><span class="eyebrow__dot"></span>"AUDIT LOG"</span>
-                    <h1 class="page__title">"Who did what, and when"</h1>
+                    <h1 class="page__title">"Audit log"</h1>
                     <p class="page__lead">
-                        "Every sign-in, sign-out and container action, newest first. Entries can't be edited or deleted from here."
+                        "Every sign-in and container action, newest first. Entries can't be edited or deleted."
                     </p>
                 </div>
-                <RefreshPill />
             </header>
 
             <div class="toolbar">

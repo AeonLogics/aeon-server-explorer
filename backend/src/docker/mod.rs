@@ -17,6 +17,7 @@ pub const LABEL_SERVICE: &str = "com.docker.compose.service";
 pub const LABEL_NUMBER: &str = "com.docker.compose.container-number";
 pub const LABEL_WORKING_DIR: &str = "com.docker.compose.project.working_dir";
 pub const LABEL_CONFIG_FILES: &str = "com.docker.compose.project.config_files";
+pub const LABEL_SELF: &str = "dev.aeonlogics.explorer.self";
 
 // Named pipe on Windows (Docker Desktop), /var/run/docker.sock on Linux. The connection is
 // lazy, so this succeeds even while Docker is still starting.

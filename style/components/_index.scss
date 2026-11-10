@@ -2,9 +2,10 @@
 @forward 'shell';
 @forward 'sidebar';
 @forward 'overview';
-@forward 'cards';
-@forward 'panel';
+@forward 'project';
+@forward 'service';
 @forward 'logs';
 @forward 'stats';
-@forward 'auth';
 @forward 'actions';
+@forward 'audit';
+@forward 'auth';

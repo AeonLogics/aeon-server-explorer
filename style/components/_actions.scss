@@ -5,35 +5,25 @@
   flex-wrap: wrap;
   align-items: center;
   gap: space(2);
-  padding: space(3) space(5);
-  border-bottom: 1px solid $line;
 
   &__flash {
     display: inline-flex;
     align-items: center;
     gap: space(2);
-    min-width: 0;
-    margin-left: auto;
-    padding: 0.3rem space(3);
-    border-radius: 999px;
+    flex-basis: 100%;
+    justify-content: flex-end;
     font-size: $text-sm;
-    animation: fade 0.2s ease both;
 
     &.is-ok {
-      background: $ok-wash;
       color: $ok;
     }
 
     &.is-err {
-      max-width: 100%;
-      margin-left: 0;
-      border-radius: $radius-sm;
+      justify-content: flex-start;
+      padding: space(2) space(3);
       background: $down-wash;
-      color: #ffb3bf;
-
-      .ico {
-        color: $down;
-      }
+      border-radius: $radius;
+      color: $down;
     }
   }
 }
@@ -44,37 +34,32 @@
   gap: space(2);
   height: 2.125rem;
   padding: 0 space(3);
-  background: rgba(236, 228, 255, 0.04);
+  background: $sheet;
   border: 1px solid $line-strong;
-  border-radius: $radius-sm;
+  border-radius: $radius;
   color: $text;
   font-size: $text-sm;
   font-weight: 500;
-  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  transition: border-color 0.12s ease, color 0.12s ease;
   @include focus-ring;
 
   .ico {
     color: $faint;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
   }
 
   &:hover:not(:disabled) {
-    background: rgba(236, 228, 255, 0.08);
-    border-color: $line-hover;
-
-    .ico {
-      color: $accent-text;
-    }
+    border-color: $text;
   }
 
   &:disabled {
     cursor: not-allowed;
-    opacity: 0.45;
+    color: $disabled;
+    border-color: $line;
   }
 
   &--go {
-    background: $ok-wash;
-    border-color: rgba(61, 220, 151, 0.3);
+    border-color: rgba(31, 122, 77, 0.35);
     color: $ok;
 
     .ico {
@@ -83,9 +68,8 @@
   }
 
   &--danger:hover:not(:disabled) {
-    background: $down-wash;
-    border-color: rgba(255, 107, 129, 0.4);
-    color: #ffb3bf;
+    border-color: $down;
+    color: $down;
 
     .ico {
       color: $down;
@@ -97,37 +81,16 @@
   }
 }
 
-.btn--danger {
-  background: linear-gradient(135deg, #ff6b81, #d8344f);
-  color: #fff;
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.2) inset, 0 12px 30px -12px rgba(255, 107, 129, 0.6);
-
-  &:disabled {
-    background: $surface-3;
-    color: $disabled;
-    box-shadow: none;
-  }
-}
-
-.field__input--plain {
-  min-height: 2.75rem;
-  padding: 0 space(4);
-  font-family: $font-mono;
-  font-size: $text-sm;
-}
-
-// The panel is the containing block, so this centres inside the panel.
 .modal-scrim {
-  position: absolute;
+  position: fixed;
   inset: 0;
   z-index: 80;
-  background: rgba(5, 3, 9, 0.62);
-  backdrop-filter: blur(4px);
-  animation: fade 0.2s ease both;
+  background: rgba(27, 21, 48, 0.28);
+  animation: settle 0.15s ease both;
 }
 
 .modal {
-  position: absolute;
+  position: fixed;
   top: 50%;
   left: 50%;
   z-index: 90;
@@ -135,48 +98,37 @@
   gap: space(4);
   width: min(26rem, calc(100% - 2rem));
   padding: space(6);
-  background: linear-gradient(180deg, $surface-3, $surface-2);
-  border: 1px solid $line-strong;
+  background: $sheet;
+  border: 1px solid $line;
   border-radius: $radius-lg;
-  box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.9);
+  box-shadow: 0 16px 40px rgba(27, 21, 48, 0.14);
   transform: translate(-50%, -50%);
-  animation: pop 0.25s $ease-spring both;
 
   &__icon {
-    display: grid;
-    place-items: center;
-    width: 2.75rem;
-    height: 2.75rem;
-    background: $accent-wash;
-    border: 1px solid rgba(162, 123, 244, 0.25);
-    border-radius: 0.875rem;
-    color: $accent-text;
-    font-size: 1.15rem;
+    color: $faint;
+    font-size: 1.1rem;
 
     &.is-danger {
-      background: $down-wash;
-      border-color: rgba(255, 107, 129, 0.3);
       color: $down;
     }
   }
 
   &__title {
     font-family: $font-display;
-    font-size: 1.3rem;
+    font-size: 1.25rem;
     font-weight: 600;
-    letter-spacing: -0.02em;
+    letter-spacing: -0.015em;
     overflow-wrap: anywhere;
   }
 
   &__body {
     color: $muted;
-    font-size: $text-base;
   }
 
   &__name {
-    padding: 0.05rem 0.35rem;
-    background: rgba(236, 228, 255, 0.08);
-    border-radius: 0.25rem;
+    padding: 0.05rem 0.3rem;
+    background: $sunken-2;
+    border-radius: 3px;
     color: $text;
     letter-spacing: 0;
     text-transform: none;
@@ -187,159 +139,5 @@
     justify-content: flex-end;
     gap: space(2);
     margin-top: space(2);
-  }
-}
-
-@keyframes pop {
-  from {
-    opacity: 0;
-    transform: translate(-50%, -46%) scale(0.97);
-  }
-}
-
-// ── Audit page ──────────────────────────────────────────────────────────────
-.toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: space(3);
-  margin-bottom: space(5);
-}
-
-.segmented {
-  display: inline-flex;
-  gap: 2px;
-  padding: 3px;
-  background: rgba(8, 6, 13, 0.55);
-  border: 1px solid $line;
-  border-radius: $radius-sm;
-
-  &__item {
-    height: 2rem;
-    padding: 0 space(4);
-    border-radius: 0.35rem;
-    color: $faint;
-    font-size: $text-sm;
-    font-weight: 500;
-    transition: background-color 0.15s ease, color 0.15s ease;
-    @include focus-ring;
-
-    &:hover {
-      color: $text;
-    }
-
-    &.is-active {
-      background: $surface-3;
-      color: $text;
-      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.05) inset, 0 4px 12px -6px rgba(0, 0, 0, 0.8);
-    }
-  }
-}
-
-.search--wide {
-  flex: 0 1 22rem;
-  margin: 0;
-
-  input {
-    height: 2.5rem;
-  }
-}
-
-.audit {
-  overflow: hidden;
-  background: $surface;
-  border: 1px solid $line;
-  border-radius: $radius-lg;
-
-  &__row {
-    display: grid;
-    grid-template-columns: 10.5rem minmax(14rem, 1.6fr) minmax(10rem, 1.2fr) minmax(8rem, 1fr) 7.5rem;
-    align-items: center;
-    gap: space(4);
-    padding: space(3) space(5);
-    border-bottom: 1px solid $line;
-    font-size: $text-sm;
-
-    &:last-child {
-      border-bottom: 0;
-    }
-
-    &:not(.audit__row--head):hover {
-      background: rgba(236, 228, 255, 0.025);
-    }
-
-    &--head {
-      background: rgba(8, 6, 13, 0.4);
-      @include mono-label;
-    }
-
-    &.is-failed {
-      background: rgba(255, 107, 129, 0.035);
-    }
-
-    @include down(lg) {
-      grid-template-columns: minmax(0, 1fr);
-      gap: space(1);
-
-      &--head {
-        display: none;
-      }
-    }
-  }
-
-  &__time,
-  &__mono {
-    min-width: 0;
-    color: $faint;
-    font-family: $font-mono;
-    font-size: $text-xs;
-    @include truncate;
-  }
-
-  &__event {
-    display: flex;
-    align-items: center;
-    gap: space(3);
-    min-width: 0;
-  }
-
-  &__icon {
-    display: grid;
-    place-items: center;
-    flex: none;
-    width: 1.875rem;
-    height: 1.875rem;
-    background: $ok-wash;
-    border-radius: $radius-sm;
-    color: $ok;
-    font-size: 0.85rem;
-
-    &.is-failed {
-      background: $down-wash;
-      color: $down;
-    }
-  }
-
-  &__what {
-    display: grid;
-    min-width: 0;
-    line-height: 1.35;
-
-    strong {
-      font-weight: 500;
-    }
-  }
-
-  &__detail {
-    color: #ffb3bf;
-    font-size: $text-xs;
-    overflow-wrap: anywhere;
-  }
-
-  &__actor {
-    min-width: 0;
-    color: $muted;
-    @include truncate;
   }
 }

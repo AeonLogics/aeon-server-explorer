@@ -130,7 +130,7 @@ fn ProjectLink(project: ProjectSummary, active: Signal<bool>) -> impl IntoView {
     let warn = project.exposed_ports > 0;
     view! {
         <a class="project-link" class:is-active=move || active.get() class:is-standalone=project.standalone href=href>
-            <StatusDot health=project.health pulse=project.health == Health::Ok />
+            <StatusDot health=project.health />
             <span class="project-link__name">{project.name}</span>
             <Show when=move || warn>
                 <span class="project-link__warn" title="Has ports published beyond localhost">
@@ -167,7 +167,7 @@ fn EngineStatus() -> impl IntoView {
                     <strong>{title}</strong>
                     <span>{sub}</span>
                 </span>
-                <StatusDot health pulse=health == Health::Ok />
+                <StatusDot health />
             </div>
         }
     }

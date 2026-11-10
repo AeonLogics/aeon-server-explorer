@@ -1,51 +1,45 @@
-// Aeon Server Explorer: "Night Amethyst", the dark side of the aeonlogics.dev palette.
+// Aeon Server Explorer: the aeonlogics.dev "Amethyst" palette, light only, matte.
 // In any partial:  @use '../base' as *;
 @use 'sass:map';
 
 // ── Colors ──────────────────────────────────────────────────────────────────
-$bg: #0b0812;
-$bg-raised: #100b19;
-$surface: #151020;
-$surface-2: #1b1428;
-$surface-3: #241b34;
-$terminal: #08060d;
+$bg: #f4f2f9;
+$sheet: #fdfcfe;
+$sunken: #f7f5fb;
+$sunken-2: #eeebf5;
 
-$text: #f3effb;
-$muted: #b9b0cc;
-$faint: #8f86a6;
-$disabled: #5f5774;
+$text: #1b1530;
+$muted: #4e4766;
+$faint: #6a6383;
+$disabled: #9a94ae;
 
-$accent: #a27bf4;
-$accent-strong: #7c4dea;
-$accent-deep: #5b2bb0;
-$accent-text: #c9b2ff;
-$accent-wash: rgba(162, 123, 244, 0.12);
-$accent-glow: rgba(124, 77, 234, 0.45);
-$gradient-accent: linear-gradient(135deg, #a27bf4 0%, #7c4dea 48%, #5b2bb0 100%);
+$accent: #5b2bb0;
+$accent-hover: #4c2296;
+$accent-active: #3d1b7a;
+$accent-wash: #efeafb;
+$on-accent: #fdfcfe;
 
-$ok: #3ddc97;
-$warn: #f5b84a;
-$down: #ff6b81;
-$ok-wash: rgba(61, 220, 151, 0.12);
-$warn-wash: rgba(245, 184, 74, 0.12);
-$down-wash: rgba(255, 107, 129, 0.12);
+$ok: #1f7a4d;
+$ok-dot: #2f9a63;
+$ok-wash: #e8f4ed;
+$warn: #8a5a00;
+$warn-dot: #d1921c;
+$warn-wash: #fbf2df;
+$down: #b3261e;
+$down-dot: #d0453b;
+$down-wash: #fbeceb;
 
-$line: rgba(236, 228, 255, 0.07);
-$line-strong: rgba(236, 228, 255, 0.13);
-$line-hover: rgba(201, 178, 255, 0.32);
-
-$shadow-card: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 20px 40px -24px rgba(0, 0, 0, 0.8);
-$shadow-lift: 0 1px 0 rgba(255, 255, 255, 0.05) inset, 0 28px 60px -28px rgba(0, 0, 0, 0.9),
-  0 0 0 1px rgba(162, 123, 244, 0.18), 0 18px 50px -30px $accent-glow;
-$shadow-panel: 0 40px 120px -20px rgba(0, 0, 0, 0.85), 0 0 0 1px $line-strong;
+$line: rgba(27, 21, 48, 0.1);
+$line-strong: rgba(27, 21, 48, 0.18);
+$control-border: #b9b3c9;
 
 // ── Type ────────────────────────────────────────────────────────────────────
 $font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
 $font-display: 'Bricolage Grotesque', 'Inter', ui-sans-serif, system-ui, sans-serif;
 $font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
 
-$text-2xs: 0.625rem;
-$text-xs: 0.6875rem;
+$text-2xs: 0.6875rem;
+$text-xs: 0.75rem;
 $text-sm: 0.8125rem;
 $text-base: 0.875rem;
 $text-md: 0.9375rem;
@@ -71,15 +65,12 @@ $space-scale: (
   @return map.get($space-scale, $step);
 }
 
-$radius-lg: 1.125rem;
-$radius: 0.875rem;
-$radius-sm: 0.5rem;
-$radius-xs: 0.375rem;
-$sidebar-width: 17.5rem;
-$control-height: 2.75rem;
-$control-height-sm: 2rem;
+$radius-lg: 8px;
+$radius: 6px;
+$radius-sm: 4px;
+$sidebar-width: 15.5rem;
+$control-height: 2.5rem;
 $ease: cubic-bezier(0.2, 0.7, 0.2, 1);
-$ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
 
 $breakpoints: (
   sm: 40rem,
@@ -104,8 +95,9 @@ $breakpoints: (
   font-family: $font-mono;
   font-size: $text-2xs;
   font-weight: 500;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.06em;
   line-height: 1.4;
+  text-transform: uppercase;
   color: $faint;
 }
 
@@ -116,41 +108,26 @@ $breakpoints: (
   }
 }
 
-@mixin glass($alpha: 0.72) {
-  background: rgba(21, 16, 32, $alpha);
-  backdrop-filter: blur(18px) saturate(140%);
-}
-
 @mixin truncate {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+@mixin sheet {
+  background: $sheet;
+  border: 1px solid $line;
+  border-radius: $radius-lg;
+}
+
 @mixin scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: rgba(236, 228, 255, 0.14) transparent;
-
-  &::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
-  }
-
-  &::-webkit-scrollbar-thumb {
-    background: rgba(236, 228, 255, 0.12);
-    border: 3px solid transparent;
-    border-radius: 999px;
-    background-clip: padding-box;
-  }
-
-  &::-webkit-scrollbar-thumb:hover {
-    background-color: rgba(236, 228, 255, 0.22);
-  }
+  scrollbar-color: rgba(27, 21, 48, 0.18) transparent;
 }
 
 // ── Reset ───────────────────────────────────────────────────────────────────
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 *,
@@ -170,12 +147,10 @@ body {
   background: $bg;
   color: $text;
   font-family: $font-sans;
-  font-size: $text-md;
+  font-size: $text-base;
   line-height: 1.55;
-  font-feature-settings: 'cv11', 'ss01';
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  @include scrollbar;
 }
 
 h1,
@@ -229,7 +204,7 @@ code {
 }
 
 ::selection {
-  background: rgba(162, 123, 244, 0.35);
+  background: rgba(91, 43, 176, 0.16);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -243,21 +218,19 @@ code {
 
 // ── Buttons ─────────────────────────────────────────────────────────────────
 .btn {
-  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: space(2);
   min-height: $control-height;
-  padding: 0 space(5);
+  padding: 0 space(4);
   border: 1px solid transparent;
-  border-radius: $radius-sm;
+  border-radius: $radius;
   font-size: $text-base;
-  font-weight: 600;
+  font-weight: 500;
   line-height: 1;
   white-space: nowrap;
-  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease,
-    box-shadow 0.2s ease, transform 0.15s $ease;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
   @include focus-ring;
 
   &:disabled {
@@ -265,34 +238,43 @@ code {
   }
 
   &--primary {
-    background: $gradient-accent;
-    color: #fff;
-    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.25) inset, 0 12px 30px -12px $accent-glow;
+    background: $accent;
+    color: $on-accent;
 
     &:hover:not(:disabled) {
-      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.3) inset, 0 16px 40px -12px rgba(124, 77, 234, 0.7);
-      transform: translateY(-1px);
+      background: $accent-hover;
     }
 
     &:active:not(:disabled) {
-      transform: translateY(0);
+      background: $accent-active;
     }
 
     &:disabled {
-      background: $surface-3;
+      background: $sunken-2;
       color: $disabled;
-      box-shadow: none;
+    }
+  }
+
+  &--danger {
+    background: $down;
+    color: #fff;
+
+    &:hover:not(:disabled) {
+      background: #9a1f18;
+    }
+
+    &:disabled {
+      background: $sunken-2;
+      color: $disabled;
     }
   }
 
   &--secondary {
-    background: $surface-2;
+    background: $sheet;
     border-color: $line-strong;
-    color: $text;
 
     &:hover:not(:disabled) {
-      border-color: $line-hover;
-      background: $surface-3;
+      border-color: $text;
     }
   }
 
@@ -300,14 +282,13 @@ code {
     color: $muted;
 
     &:hover:not(:disabled) {
+      background: $sunken-2;
       color: $text;
-      background: rgba(236, 228, 255, 0.05);
     }
   }
 
   &--lg {
-    min-height: 3rem;
-    font-size: $text-md;
+    min-height: 2.75rem;
   }
 
   &--block {
@@ -319,20 +300,20 @@ code {
   display: inline-grid;
   place-items: center;
   flex: none;
-  width: 2.125rem;
-  height: 2.125rem;
-  border-radius: $radius-sm;
+  width: 2rem;
+  height: 2rem;
+  border-radius: $radius;
   color: $faint;
   transition: background-color 0.15s ease, color 0.15s ease;
   @include focus-ring;
 
   &:hover:not(:disabled) {
-    background: rgba(236, 228, 255, 0.07);
+    background: $sunken-2;
     color: $text;
   }
 
   .ico {
-    font-size: 1.05rem;
+    font-size: 1rem;
   }
 }
 
@@ -352,59 +333,58 @@ code {
 
     > .ico {
       position: absolute;
-      left: space(4);
+      left: space(3);
       color: $faint;
-      font-size: 1rem;
+      font-size: 0.95rem;
       pointer-events: none;
-      transition: color 0.15s ease;
-    }
-
-    &:focus-within > .ico {
-      color: $accent-text;
     }
   }
 
   &__input {
     width: 100%;
-    min-height: 3rem;
-    padding: 0 3rem 0 2.75rem;
-    background: rgba(8, 6, 13, 0.6);
-    border: 1px solid $line-strong;
-    border-radius: $radius-sm;
+    min-height: $control-height;
+    padding: 0 2.75rem 0 2.25rem;
+    background: $sheet;
+    border: 1px solid $control-border;
+    border-radius: $radius;
     color: $text;
-    font-size: $text-md;
-    transition: border-color 0.15s ease, box-shadow 0.2s ease, background-color 0.15s ease;
+    font-size: $text-base;
+    transition: border-color 0.15s ease;
 
     &::placeholder {
       color: $disabled;
     }
 
     &:hover {
-      border-color: rgba(236, 228, 255, 0.22);
+      border-color: $muted;
     }
 
     &:focus {
-      outline: none;
+      outline: 2px solid rgba(91, 43, 176, 0.25);
+      outline-offset: 0;
       border-color: $accent;
-      background: rgba(8, 6, 13, 0.85);
-      box-shadow: 0 0 0 4px rgba(162, 123, 244, 0.16);
+    }
+
+    &--plain {
+      padding: 0 space(3);
+      font-family: $font-mono;
+      font-size: $text-sm;
     }
   }
 
   &__reveal {
     position: absolute;
-    right: space(2);
+    right: space(1);
     display: grid;
     place-items: center;
-    width: 2.25rem;
-    height: 2.25rem;
-    border-radius: $radius-xs;
+    width: 2rem;
+    height: 2rem;
+    border-radius: $radius-sm;
     color: $faint;
     @include focus-ring;
 
     &:hover {
       color: $text;
-      background: rgba(236, 228, 255, 0.06);
     }
   }
 
@@ -419,7 +399,6 @@ code {
   }
 
   &.is-invalid &__input {
-    border-color: rgba(255, 107, 129, 0.6);
-    box-shadow: 0 0 0 4px rgba(255, 107, 129, 0.1);
+    border-color: $down;
   }
 }

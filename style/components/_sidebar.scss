@@ -6,20 +6,18 @@
   z-index: 50;
   display: flex;
   flex-direction: column;
-  gap: space(2);
+  gap: space(1);
   height: 100vh;
   padding: space(5) space(3) space(3);
-  background: linear-gradient(180deg, rgba(20, 14, 31, 0.92), rgba(12, 9, 19, 0.96));
+  background: $sheet;
   border-right: 1px solid $line;
-  backdrop-filter: blur(20px);
 
   @include down(lg) {
     position: fixed;
     inset: 0 auto 0 0;
     width: min(#{$sidebar-width}, 86vw);
     transform: translateX(-102%);
-    transition: transform 0.3s $ease;
-    box-shadow: 30px 0 80px -30px rgba(0, 0, 0, 0.9);
+    transition: transform 0.25s $ease;
 
     .is-nav-open & {
       transform: none;
@@ -31,127 +29,101 @@
   display: flex;
   align-items: center;
   gap: space(3);
-  padding: space(1) space(2) space(4);
-  margin-bottom: space(2);
-  border-bottom: 1px solid $line;
+  padding: 0 space(2) space(5);
 
   &__mark {
     display: grid;
     place-items: center;
     flex: none;
-    width: 2.5rem;
-    height: 2.5rem;
-    background: radial-gradient(circle at 30% 20%, rgba(162, 123, 244, 0.28), rgba(91, 43, 176, 0.08));
-    border: 1px solid rgba(162, 123, 244, 0.28);
-    border-radius: 0.75rem;
-    box-shadow: 0 0 30px -8px $accent-glow, 0 1px 0 rgba(255, 255, 255, 0.08) inset;
 
     img {
-      width: 1.5rem;
+      width: 1.75rem;
       height: auto;
-      filter: drop-shadow(0 0 6px rgba(162, 123, 244, 0.6));
     }
 
-    &--lg {
-      width: 3.25rem;
-      height: 3.25rem;
-      border-radius: 1rem;
-
-      img {
-        width: 2rem;
-      }
+    &--lg img {
+      width: 2.25rem;
     }
   }
 
   &__text {
     display: grid;
-    gap: 0.1rem;
     min-width: 0;
+    line-height: 1.25;
 
     strong {
       font-family: $font-display;
-      font-size: 1.0625rem;
+      font-size: 1rem;
       font-weight: 600;
-      letter-spacing: -0.02em;
-      line-height: 1.2;
+      letter-spacing: -0.015em;
     }
   }
 }
 
-.side-link {
+.side-link,
+.project-link {
   display: flex;
   align-items: center;
   gap: space(3);
-  height: 2.375rem;
-  padding: 0 space(3);
-  border-radius: $radius-sm;
+  height: 2.125rem;
+  padding: 0 space(2);
+  border-radius: $radius;
   color: $muted;
   font-size: $text-base;
-  font-weight: 500;
-  transition: background-color 0.15s ease, color 0.15s ease;
+  transition: background-color 0.12s ease, color 0.12s ease;
   @include focus-ring;
 
-  .ico {
-    font-size: 1rem;
-    color: $faint;
-  }
-
   &:hover {
-    background: rgba(236, 228, 255, 0.05);
+    background: $sunken;
     color: $text;
   }
 
   &.is-active {
     background: $accent-wash;
-    color: $text;
-    box-shadow: inset 0 0 0 1px rgba(162, 123, 244, 0.2);
-
-    .ico {
-      color: $accent-text;
-    }
+    color: $accent;
+    font-weight: 500;
   }
+}
+
+.side-link .ico {
+  font-size: 0.95rem;
 }
 
 .sidebar__section {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: space(4) space(3) space(1);
+  padding: space(5) space(2) space(2);
 }
 
 .sidebar__count {
-  padding: 0 0.45rem;
-  background: rgba(236, 228, 255, 0.06);
-  border-radius: 999px;
-  color: $muted;
+  color: $faint;
   font-family: $font-mono;
   font-size: $text-2xs;
-  line-height: 1.25rem;
 }
 
 .search {
   position: relative;
   display: flex;
   align-items: center;
-  margin: 0 space(1) space(1);
+  margin-bottom: space(2);
 
   .ico {
     position: absolute;
-    left: space(3);
+    left: space(2);
     color: $faint;
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     pointer-events: none;
   }
 
   input {
     width: 100%;
-    height: 2.125rem;
-    padding: 0 space(3) 0 2.1rem;
-    background: rgba(8, 6, 13, 0.55);
-    border: 1px solid $line;
-    border-radius: $radius-sm;
+    height: 2rem;
+    padding: 0 space(2) 0 1.75rem;
+    background: $sunken;
+    border: 1px solid transparent;
+    border-radius: $radius;
     font-size: $text-sm;
-    transition: border-color 0.15s ease, box-shadow 0.15s ease;
 
     &::placeholder {
       color: $disabled;
@@ -159,8 +131,19 @@
 
     &:focus {
       outline: none;
-      border-color: rgba(162, 123, 244, 0.6);
-      box-shadow: 0 0 0 3px rgba(162, 123, 244, 0.14);
+      background: $sheet;
+      border-color: $control-border;
+    }
+  }
+
+  &--wide {
+    flex: 0 1 20rem;
+    margin: 0;
+
+    input {
+      height: 2.25rem;
+      background: $sheet;
+      border-color: $line-strong;
     }
   }
 }
@@ -168,62 +151,23 @@
 .projects {
   flex: 1;
   min-height: 0;
-  margin: 0 (-(space(1)));
-  padding: 0 space(1);
   overflow-y: auto;
   @include scrollbar;
 
   &__empty {
-    padding: space(3);
+    padding: space(2);
     color: $faint;
     font-size: $text-sm;
   }
 }
 
 .project-link {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: space(3);
-  height: 2.375rem;
-  padding: 0 space(3);
-  border-radius: $radius-sm;
-  color: $muted;
-  font-size: $text-base;
-  transition: background-color 0.15s ease, color 0.15s ease;
-  @include focus-ring;
-
-  &::before {
-    content: '';
-    position: absolute;
-    left: -0.25rem;
-    top: 0.6rem;
-    bottom: 0.6rem;
-    width: 3px;
-    border-radius: 3px;
-    background: $gradient-accent;
-    opacity: 0;
-    transform: scaleY(0.3);
-    transition: opacity 0.2s ease, transform 0.25s $ease;
-  }
-
-  &:hover {
-    background: rgba(236, 228, 255, 0.045);
-    color: $text;
-  }
-
-  &.is-active {
-    background: linear-gradient(90deg, rgba(162, 123, 244, 0.14), rgba(162, 123, 244, 0.04));
-    color: $text;
-
-    &::before {
-      opacity: 1;
-      transform: none;
-    }
+  .dot {
+    width: 0.4375rem;
+    height: 0.4375rem;
   }
 
   &.is-standalone &__name {
-    font-style: italic;
     color: $faint;
   }
 
@@ -235,19 +179,19 @@
 
   &__warn {
     color: $warn;
-    font-size: 0.8rem;
+    font-size: 0.75rem;
   }
 
   &__count {
     color: $faint;
     font-family: $font-mono;
-    font-size: $text-xs;
+    font-size: $text-2xs;
   }
 }
 
 .sidebar__foot {
   display: grid;
-  gap: space(2);
+  gap: space(1);
   padding-top: space(3);
   border-top: 1px solid $line;
 }
@@ -255,20 +199,11 @@
 .engine {
   display: flex;
   align-items: center;
-  gap: space(3);
-  padding: space(3);
-  background: rgba(236, 228, 255, 0.03);
-  border: 1px solid $line;
-  border-radius: $radius;
+  gap: space(2);
+  padding: space(2);
 
   &__icon {
-    display: grid;
-    place-items: center;
-    width: 2rem;
-    height: 2rem;
-    background: rgba(236, 228, 255, 0.05);
-    border-radius: $radius-sm;
-    color: $muted;
+    color: $faint;
   }
 
   &__text {
@@ -279,7 +214,7 @@
 
     strong {
       font-size: $text-sm;
-      font-weight: 600;
+      font-weight: 500;
     }
 
     span {
@@ -289,30 +224,25 @@
       @include truncate;
     }
   }
-
-  .dot {
-    margin-right: space(1);
-  }
 }
 
 .who {
   display: flex;
   align-items: center;
-  gap: space(3);
-  padding: space(2) space(1) space(1) space(2);
+  gap: space(2);
+  padding: space(1) 0 0 space(2);
 
   &__avatar {
     display: grid;
     place-items: center;
     flex: none;
-    width: 2rem;
-    height: 2rem;
-    background: $gradient-accent;
+    width: 1.75rem;
+    height: 1.75rem;
+    background: $accent-wash;
     border-radius: 50%;
-    color: #fff;
-    font-family: $font-display;
+    color: $accent;
+    font-size: $text-xs;
     font-weight: 600;
-    box-shadow: 0 0 0 3px rgba(162, 123, 244, 0.16);
   }
 
   &__text {

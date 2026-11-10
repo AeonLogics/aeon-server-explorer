@@ -13,4 +13,4 @@ pub use common::NotFound;
 pub use gate::Gate;
 pub use overview::OverviewPage;
 pub use project::ProjectPage;
-pub use service::ServicePanel;
+pub use service::ServicePage;
