@@ -44,7 +44,8 @@ You need: Rust (stable), `cargo-leptos`, the `wasm32-unknown-unknown` target, an
    ```
 
    The first build takes a while (SurrealDB is big). When you see
-   `listening on http://localhost:5050`, open **http://localhost:5050**.
+   `listening on http://localhost:5055`, open **http://localhost:5055**.
+   (Local dev uses 5055, so it never clashes with the server tunnel on 5050.)
 
 5. **Sign in** with `ADMIN_EMAIL` / `ADMIN_PASSWORD`. You'll be asked to choose a new password
    (at least 12 characters) before anything else.
@@ -108,14 +109,18 @@ docker compose logs -f
 
 Wait for `listening on http://localhost:5050`.
 
-**5. Open it from the PC.** Stop the local dev app first (it also uses port 5050), then:
+**5. Open it from the PC, without typing a tunnel each time.** Run this once:
 
 ```powershell
-ssh -N -L 5050:localhost:5050 aeon@192.168.100.26
+powershell -ExecutionPolicy Bypass -File deploy\install-tunnel.ps1
 ```
 
-Keep that window open and browse to **http://localhost:5050**. The tunnel must use 5050 on both
-sides: the app rejects any other `Host`.
+It registers a hidden task that starts at every Windows login and keeps
+`ssh -L 5050:localhost:5050` open, reconnecting after sleep or network drops. From then on just
+open **http://localhost:5050**. To remove it:
+`Unregister-ScheduledTask -TaskName "Aeon Explorer tunnel" -Confirm:$false`.
+
+The tunnel must use 5050 on both sides: the app rejects any other `Host`.
 
 **Updating later:** repeat steps 1, 2 and 4. The database lives in the `explorer-data` volume
 and survives updates. After the first login you can remove `ADMIN_PASSWORD` from `.env`.
@@ -131,7 +136,8 @@ and survives updates. After the first login you can remove `ADMIN_PASSWORD` from
 Docker is reached through its standard local socket: the named pipe `//./pipe/docker_engine` on
 Windows, `/var/run/docker.sock` on Linux.
 
-The address is `127.0.0.1:5050` (`site-addr` in `Cargo.toml`, or `LEPTOS_SITE_ADDR`). The app
+The address is `127.0.0.1:5055` locally (`site-addr` in `Cargo.toml`) and `127.0.0.1:5050` in the
+Docker image (`LEPTOS_SITE_ADDR`). The app
 refuses to start on anything that isn't a loopback address.
 
 **Forgot the password / start over:** stop the app, delete the `data/` folder, and start again;
@@ -140,7 +146,7 @@ the admin is re-created from `.env`.
 ## Security notes
 
 - Controlling Docker is root on the host. The app binds to loopback only, and rejects any request
-  whose `Host` header isn't `localhost:5050` or `127.0.0.1:5050` (stops DNS rebinding).
+  whose `Host` header isn't `localhost:<port>` or `127.0.0.1:<port>` (stops DNS rebinding).
 - On a server, reach it with `ssh -L 5050:localhost:5050 <user>@<server>`. Never put it behind
   a public proxy or tunnel.
 - Session cookie `__Host-explorer_session` is `HttpOnly; Secure; SameSite=Strict`. The database
