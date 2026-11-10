@@ -1,0 +1,160 @@
+@use '../base' as *;
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: space(3);
+  padding: space(4) space(5);
+  border-bottom: 1px solid $line;
+  transition: opacity 0.3s ease;
+
+  &.is-stopped {
+    opacity: 0.55;
+  }
+
+  @include down(sm) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.stat-tile {
+  display: grid;
+  gap: space(2);
+  padding: space(4) space(4) space(3);
+  background: linear-gradient(160deg, rgba(36, 27, 52, 0.6), rgba(12, 9, 19, 0.7));
+  border: 1px solid $line;
+  border-radius: $radius;
+
+  &__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  &__label {
+    display: inline-flex;
+    align-items: center;
+    gap: space(2);
+    @include mono-label;
+    text-transform: uppercase;
+
+    .ico {
+      color: $accent-text;
+      font-size: 0.85rem;
+    }
+  }
+
+  &__live {
+    @include mono-label;
+    color: $disabled;
+
+    &.is-live {
+      color: $ok;
+    }
+  }
+
+  &__pct {
+    color: $muted;
+    font-family: $font-mono;
+    font-size: $text-xs;
+  }
+
+  &__value {
+    display: flex;
+    align-items: baseline;
+    gap: 0.2rem;
+    min-width: 0;
+
+    strong {
+      font-family: $font-display;
+      font-size: 1.75rem;
+      font-weight: 600;
+      letter-spacing: -0.035em;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+    }
+  }
+
+  &__unit {
+    color: $muted;
+    font-family: $font-display;
+    font-size: 1rem;
+  }
+
+  &__sub {
+    margin-left: space(2);
+    color: $faint;
+    font-size: $text-xs;
+    @include truncate;
+  }
+}
+
+.spark {
+  position: relative;
+  height: 3.5rem;
+
+  svg {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+
+  &__base {
+    stroke: $line-strong;
+    stroke-width: 1;
+    vector-effect: non-scaling-stroke;
+  }
+
+  &__area {
+    fill: rgba(162, 123, 244, 0.12);
+  }
+
+  &__line {
+    fill: none;
+    stroke: $accent;
+    stroke-width: 2;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+    vector-effect: non-scaling-stroke;
+  }
+
+  &__cross {
+    stroke: rgba(236, 228, 255, 0.35);
+    stroke-width: 1;
+    stroke-dasharray: 2 3;
+    vector-effect: non-scaling-stroke;
+  }
+
+  &__hit {
+    fill: transparent;
+    cursor: crosshair;
+  }
+
+  &__head {
+    position: absolute;
+    width: 0.5rem;
+    height: 0.5rem;
+    border: 2px solid $surface;
+    border-radius: 50%;
+    background: $accent;
+    box-shadow: 0 0 10px $accent;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+  }
+
+  &__tip {
+    position: absolute;
+    bottom: calc(100% + 0.25rem);
+    padding: 0.2rem space(2);
+    background: $surface-3;
+    border: 1px solid $line-strong;
+    border-radius: $radius-xs;
+    color: $text;
+    font-family: $font-mono;
+    font-size: $text-2xs;
+    white-space: nowrap;
+    transform: translateX(-50%);
+    pointer-events: none;
+    box-shadow: 0 8px 20px -8px rgba(0, 0, 0, 0.8);
+  }
+}

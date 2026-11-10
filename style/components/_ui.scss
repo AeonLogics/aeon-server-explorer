@@ -1,0 +1,456 @@
+@use '../base' as *;
+
+.ico {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  line-height: 0;
+
+  svg {
+    width: 1em;
+    height: 1em;
+  }
+}
+
+.label {
+  @include mono-label;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: space(2);
+  width: fit-content;
+  padding: 0.3rem space(3);
+  background: $accent-wash;
+  border: 1px solid rgba(162, 123, 244, 0.22);
+  border-radius: 999px;
+  @include mono-label;
+  color: $accent-text;
+
+  &__dot {
+    width: 0.375rem;
+    height: 0.375rem;
+    background: $accent;
+    border-radius: 50%;
+    box-shadow: 0 0 0 3px rgba(162, 123, 244, 0.22), 0 0 12px $accent;
+  }
+}
+
+// ── Status dot ──────────────────────────────────────────────────────────────
+.dot {
+  position: relative;
+  flex: none;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: $faint;
+
+  &.is-ok {
+    background: $ok;
+    box-shadow: 0 0 10px rgba(61, 220, 151, 0.55);
+  }
+
+  &.is-warn {
+    background: $warn;
+    box-shadow: 0 0 10px rgba(245, 184, 74, 0.5);
+  }
+
+  &.is-down {
+    background: $down;
+    box-shadow: 0 0 10px rgba(255, 107, 129, 0.5);
+  }
+
+  &--pulse::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: inherit;
+    animation: pulse 2.4s $ease infinite;
+  }
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  70%,
+  100% {
+    transform: scale(2.8);
+    opacity: 0;
+  }
+}
+
+// ── Badge ───────────────────────────────────────────────────────────────────
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex: none;
+  height: 1.5rem;
+  padding: 0 space(2) 0 0.4rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-size: $text-xs;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+
+  .ico {
+    font-size: 0.85rem;
+  }
+
+  &.is-ok {
+    background: $ok-wash;
+    border-color: rgba(61, 220, 151, 0.22);
+    color: $ok;
+  }
+
+  &.is-warn {
+    background: $warn-wash;
+    border-color: rgba(245, 184, 74, 0.22);
+    color: $warn;
+  }
+
+  &.is-down {
+    background: $down-wash;
+    border-color: rgba(255, 107, 129, 0.24);
+    color: $down;
+  }
+}
+
+// ── Chips ───────────────────────────────────────────────────────────────────
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+
+  &__none {
+    color: $disabled;
+    font-size: $text-sm;
+  }
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  max-width: 100%;
+  height: 1.625rem;
+  padding: 0 space(2);
+  background: rgba(236, 228, 255, 0.04);
+  border: 1px solid $line-strong;
+  border-radius: $radius-xs;
+  color: $muted;
+  font-family: $font-mono;
+  font-size: $text-xs;
+  white-space: nowrap;
+  @include truncate;
+
+  .ico {
+    font-size: 0.8rem;
+    color: $faint;
+  }
+
+  &--net {
+    --chip-color: hsl(var(--hue) 78% 72%);
+    background: hsl(var(--hue) 60% 60% / 0.1);
+    border-color: hsl(var(--hue) 70% 70% / 0.28);
+    color: var(--chip-color);
+  }
+
+  &__swatch {
+    flex: none;
+    width: 0.45rem;
+    height: 0.45rem;
+    border-radius: 2px;
+    background: var(--chip-color);
+    box-shadow: 0 0 8px var(--chip-color);
+  }
+
+  &--port.is-exposed {
+    background: $warn-wash;
+    border-color: rgba(245, 184, 74, 0.35);
+    color: $warn;
+
+    .ico {
+      color: $warn;
+    }
+  }
+
+  &--port.is-internal {
+    border-style: dashed;
+    color: $faint;
+  }
+}
+
+// ── Pills & flags ───────────────────────────────────────────────────────────
+.refresh-pill,
+.meta-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: space(2);
+  height: 1.875rem;
+  padding: 0 space(3);
+  background: rgba(236, 228, 255, 0.04);
+  border: 1px solid $line;
+  border-radius: 999px;
+  color: $muted;
+  font-size: $text-sm;
+  white-space: nowrap;
+
+  .ico {
+    color: $faint;
+  }
+}
+
+.refresh-pill {
+  @include mono-label;
+  color: $muted;
+}
+
+.meta-pill {
+  max-width: 100%;
+
+  &--mono {
+    font-family: $font-mono;
+    font-size: $text-xs;
+    @include truncate;
+  }
+
+  &.is-warn {
+    background: $warn-wash;
+    border-color: rgba(245, 184, 74, 0.3);
+    color: $warn;
+
+    .ico {
+      color: $warn;
+    }
+  }
+}
+
+.flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  height: 1.375rem;
+  padding: 0 0.45rem;
+  border-radius: 999px;
+  font-family: $font-mono;
+  font-size: $text-xs;
+
+  &.is-warn {
+    background: $warn-wash;
+    color: $warn;
+  }
+
+  &.is-down {
+    background: $down-wash;
+    color: $down;
+  }
+}
+
+// ── Tabs ────────────────────────────────────────────────────────────────────
+.tabs {
+  display: flex;
+  gap: space(1);
+  padding: 0 space(5);
+  border-bottom: 1px solid $line;
+  overflow-x: auto;
+  scrollbar-width: none;
+
+  &__tab {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: space(2);
+    height: 2.75rem;
+    padding: 0 space(3);
+    color: $faint;
+    font-size: $text-base;
+    font-weight: 500;
+    white-space: nowrap;
+    transition: color 0.15s ease;
+    @include focus-ring;
+
+    &::after {
+      content: '';
+      position: absolute;
+      left: space(2);
+      right: space(2);
+      bottom: -1px;
+      height: 2px;
+      border-radius: 2px;
+      background: $gradient-accent;
+      opacity: 0;
+      transform: scaleX(0.4);
+      transition: opacity 0.2s ease, transform 0.25s $ease;
+    }
+
+    &:hover {
+      color: $text;
+    }
+
+    &.is-active {
+      color: $text;
+
+      &::after {
+        opacity: 1;
+        transform: scaleX(1);
+      }
+
+      .ico {
+        color: $accent-text;
+      }
+    }
+  }
+
+  &__count {
+    min-width: 1.25rem;
+    padding: 0 0.35rem;
+    background: rgba(236, 228, 255, 0.07);
+    border-radius: 999px;
+    color: $muted;
+    font-family: $font-mono;
+    font-size: $text-2xs;
+    line-height: 1.25rem;
+    text-align: center;
+
+    &:empty {
+      display: none;
+    }
+  }
+}
+
+// ── Empty, alerts, skeletons ────────────────────────────────────────────────
+.empty-state {
+  display: grid;
+  justify-items: center;
+  gap: space(3);
+  max-width: 30rem;
+  margin: space(12) auto;
+  padding: space(10) space(8);
+  background: $surface;
+  border: 1px solid $line;
+  border-radius: $radius-lg;
+  text-align: center;
+
+  &__icon {
+    display: grid;
+    place-items: center;
+    width: 3.5rem;
+    height: 3.5rem;
+    margin-bottom: space(2);
+    background: $accent-wash;
+    border: 1px solid rgba(162, 123, 244, 0.25);
+    border-radius: 1rem;
+    color: $accent-text;
+    font-size: 1.5rem;
+    box-shadow: 0 0 40px -10px $accent-glow;
+  }
+
+  h1,
+  h2 {
+    font-family: $font-display;
+    font-size: 1.375rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+
+  p {
+    color: $muted;
+    font-size: $text-base;
+  }
+
+  &--page {
+    margin-top: 20vh;
+  }
+
+  &--small {
+    margin: space(6) auto;
+    padding: space(8) space(6);
+  }
+}
+
+.alert {
+  display: flex;
+  align-items: flex-start;
+  gap: space(2);
+  padding: space(3) space(4);
+  background: $down-wash;
+  border: 1px solid rgba(255, 107, 129, 0.28);
+  border-radius: $radius-sm;
+  color: #ffb3bf;
+  font-size: $text-sm;
+
+  .ico {
+    margin-top: 0.15rem;
+    color: $down;
+  }
+}
+
+.note {
+  display: flex;
+  align-items: center;
+  gap: space(2);
+  padding: space(3) space(4);
+  background: $accent-wash;
+  border: 1px solid rgba(162, 123, 244, 0.2);
+  border-radius: $radius-sm;
+  color: $accent-text;
+  font-size: $text-sm;
+}
+
+.skeleton {
+  display: block;
+  height: 2.25rem;
+  border-radius: $radius-sm;
+  background: linear-gradient(100deg, $surface 20%, $surface-2 40%, $surface 60%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+
+  &--card {
+    height: 13rem;
+    border-radius: $radius-lg;
+  }
+
+  &--title {
+    width: 60%;
+    height: 2.75rem;
+  }
+
+  &--block {
+    height: 14rem;
+    margin: space(5);
+  }
+}
+
+.skeleton-list {
+  display: grid;
+  gap: space(2);
+  padding: space(1) space(2);
+}
+
+@keyframes shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+.boot {
+  min-height: 100vh;
+}

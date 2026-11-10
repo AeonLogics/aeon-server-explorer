@@ -1,0 +1,48 @@
+name: explorer-demo
+
+services:
+  web:
+    image: nginx:alpine
+    ports:
+      - "127.0.0.1:3090:80"
+    networks: [front]
+
+  api:
+    image: busybox:latest
+    command: >
+      sh -c 'i=0; while true; do i=$$((i+1));
+      echo "GET /api/items 200 $$((RANDOM % 40))ms request=$$i";
+      if [ $$((i % 7)) -eq 0 ]; then echo "warn: slow query on items ($$i)" >&2; fi;
+      sleep 1; done'
+    environment:
+      DATABASE_URL: postgres://demo:demo@db:5432/demo
+      SESSION_SECRET: not-a-real-secret
+    networks: [front, back]
+
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: demo
+      POSTGRES_PASSWORD: demo
+      POSTGRES_DB: demo
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U demo"]
+      interval: 5s
+      retries: 5
+    networks: [back]
+
+  # Published on every interface on purpose, so you can see the warning.
+  cache:
+    image: redis:7-alpine
+    ports:
+      - "6390:6379"
+    networks: [back]
+
+networks:
+  front:
+  back:
+
+volumes:
+  db-data:

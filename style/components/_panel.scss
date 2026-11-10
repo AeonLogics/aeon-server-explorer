@@ -1,0 +1,300 @@
+@use '../base' as *;
+
+.panel-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(5, 3, 9, 0.45);
+  backdrop-filter: blur(2px);
+  animation: fade 0.25s ease both;
+}
+
+.panel {
+  position: fixed;
+  top: space(3);
+  right: space(3);
+  bottom: space(3);
+  z-index: 70;
+  display: flex;
+  flex-direction: column;
+  width: clamp(32rem, 50vw, 52rem);
+  overflow: hidden;
+  background: linear-gradient(180deg, rgba(27, 20, 40, 0.97), rgba(15, 11, 23, 0.98));
+  border-radius: 1.25rem;
+  box-shadow: $shadow-panel;
+  backdrop-filter: blur(24px);
+  animation: slide-in 0.35s $ease both;
+
+  @include down(md) {
+    inset: 0;
+    width: auto;
+    border-radius: 0;
+  }
+
+  &__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: space(4);
+    padding: space(5) space(5) space(4);
+    border-bottom: 1px solid $line;
+    background: radial-gradient(40rem 10rem at 0% 0%, rgba(124, 77, 234, 0.14), transparent 70%);
+
+    > :first-child {
+      flex: 1;
+      min-width: 0;
+    }
+  }
+
+  &__titles {
+    display: flex;
+    align-items: center;
+    gap: space(3);
+    min-width: 0;
+
+    > div {
+      flex: 1;
+      min-width: 0;
+    }
+  }
+
+  &__title {
+    font-family: $font-display;
+    font-size: 1.375rem;
+    font-weight: 600;
+    letter-spacing: -0.025em;
+    line-height: 1.2;
+    @include truncate;
+  }
+
+  &__sub {
+    display: block;
+    color: $faint;
+    font-family: $font-mono;
+    font-size: $text-xs;
+    @include truncate;
+  }
+
+  &__body {
+    position: relative;
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  &__logs {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+
+    &.is-hidden {
+      display: none;
+    }
+  }
+
+  &__scroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    @include scrollbar;
+  }
+}
+
+@keyframes slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(2.5rem);
+  }
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+
+.block {
+  display: grid;
+  gap: space(3);
+  padding: space(5);
+  border-bottom: 1px solid $line;
+
+  &:last-child {
+    border-bottom: 0;
+  }
+
+  &__title {
+    @include mono-label;
+    text-transform: uppercase;
+  }
+}
+
+.kv {
+  display: grid;
+  grid-template-columns: 9rem minmax(0, 1fr);
+  gap: space(2) space(4);
+  font-size: $text-sm;
+
+  dt {
+    color: $faint;
+  }
+
+  dd {
+    min-width: 0;
+    color: $text;
+    overflow-wrap: anywhere;
+
+    &.is-mono {
+      font-family: $font-mono;
+      font-size: $text-xs;
+      line-height: 1.8;
+    }
+  }
+
+  @include down(sm) {
+    grid-template-columns: minmax(0, 1fr);
+
+    dd {
+      margin-bottom: space(2);
+    }
+  }
+}
+
+.rows {
+  display: grid;
+  gap: space(2);
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: space(3);
+  padding: space(3);
+  background: rgba(8, 6, 13, 0.4);
+  border: 1px solid $line;
+  border-radius: $radius-sm;
+
+  &__mono {
+    color: $muted;
+    font-family: $font-mono;
+    font-size: $text-xs;
+  }
+
+  &__faint {
+    min-width: 0;
+    color: $faint;
+    font-size: $text-xs;
+    @include truncate;
+  }
+}
+
+.env {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  gap: space(2);
+
+  li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: space(3);
+    padding: space(2) space(3);
+    background: rgba(8, 6, 13, 0.45);
+    border: 1px solid $line;
+    border-radius: $radius-sm;
+  }
+
+  code {
+    min-width: 0;
+    color: $accent-text;
+    font-size: $text-xs;
+    @include truncate;
+  }
+
+  span {
+    color: $disabled;
+    font-family: $font-mono;
+    font-size: $text-xs;
+    letter-spacing: 0.1em;
+  }
+}
+
+.mounts {
+  display: grid;
+  gap: space(2);
+}
+
+.mount {
+  display: flex;
+  align-items: center;
+  gap: space(3);
+  padding: space(3);
+  background: rgba(8, 6, 13, 0.45);
+  border: 1px solid $line;
+  border-radius: $radius-sm;
+
+  @include down(sm) {
+    flex-wrap: wrap;
+  }
+
+  &__kind {
+    flex: none;
+    min-width: 3.75rem;
+    padding: 0.15rem space(2);
+    border-radius: $radius-xs;
+    background: rgba(236, 228, 255, 0.06);
+    color: $muted;
+    font-family: $font-mono;
+    font-size: $text-2xs;
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+
+    &.is-volume {
+      background: rgba(86, 182, 255, 0.1);
+      color: #8fd0ff;
+    }
+
+    &.is-bind {
+      background: $accent-wash;
+      color: $accent-text;
+    }
+  }
+
+  &__paths {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    gap: space(2);
+    min-width: 0;
+    font-size: $text-xs;
+  }
+
+  &__src,
+  &__dst {
+    min-width: 0;
+    @include truncate;
+  }
+
+  &__src {
+    color: $muted;
+  }
+
+  &__arrow {
+    flex: none;
+    color: $disabled;
+  }
+
+  &__mode {
+    flex: none;
+    color: $faint;
+    font-family: $font-mono;
+    font-size: $text-2xs;
+
+    &.is-ro {
+      color: $ok;
+    }
+  }
+}

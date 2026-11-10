@@ -1,0 +1,188 @@
+@use '../base' as *;
+
+.app {
+  position: relative;
+  display: grid;
+  grid-template-columns: $sidebar-width minmax(0, 1fr);
+  min-height: 100vh;
+
+  @include down(lg) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+// Soft amethyst light behind everything, plus a faint canvas grid.
+.ambient {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(60rem 36rem at 85% -10%, rgba(124, 77, 234, 0.16), transparent 60%),
+    radial-gradient(40rem 30rem at 20% 110%, rgba(91, 43, 176, 0.12), transparent 60%),
+    radial-gradient(circle at 1px 1px, rgba(236, 228, 255, 0.045) 1px, transparent 0) 0 0 / 22px 22px;
+}
+
+.main {
+  position: relative;
+  min-width: 0;
+  padding: space(8) space(10) space(16);
+
+  @include down(xl) {
+    padding: space(6) space(6) space(12);
+  }
+
+  @include down(sm) {
+    padding: space(4) space(4) space(10);
+  }
+}
+
+.topbar {
+  display: none;
+
+  @include down(lg) {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    display: flex;
+    align-items: center;
+    gap: space(2);
+    height: 3.5rem;
+    padding: 0 space(3);
+    border-bottom: 1px solid $line;
+    @include glass(0.8);
+  }
+
+  &__brand {
+    display: inline-flex;
+    align-items: center;
+    gap: space(2);
+    font-family: $font-display;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+}
+
+.scrim {
+  display: none;
+
+  @include down(lg) {
+    .is-nav-open & {
+      position: fixed;
+      inset: 0;
+      z-index: 40;
+      display: block;
+      background: rgba(5, 3, 9, 0.6);
+      backdrop-filter: blur(3px);
+    }
+  }
+}
+
+// ── Page scaffolding ────────────────────────────────────────────────────────
+.page {
+  max-width: 92rem;
+  margin: 0 auto;
+  animation: fade 0.4s ease both;
+
+  &__head {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: space(6);
+    margin-bottom: space(8);
+
+    @include down(md) {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+  }
+
+  &__titles {
+    display: grid;
+    gap: space(3);
+    min-width: 0;
+  }
+
+  &__title {
+    display: flex;
+    align-items: center;
+    gap: space(3);
+    font-family: $font-display;
+    font-size: clamp(1.75rem, 1.2rem + 1.6vw, 2.5rem);
+    font-weight: 600;
+    letter-spacing: -0.035em;
+    line-height: 1.1;
+    background: linear-gradient(180deg, #fff 30%, #cfc3ea 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+
+    .dot {
+      width: 0.625rem;
+      height: 0.625rem;
+    }
+  }
+
+  &__lead {
+    max-width: 40rem;
+    color: $muted;
+  }
+
+  &__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: space(2);
+    min-width: 0;
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+.crumbs {
+  display: flex;
+  align-items: center;
+  gap: space(1);
+  color: $faint;
+  font-size: $text-sm;
+
+  a:hover {
+    color: $text;
+  }
+
+  .ico {
+    font-size: 0.8rem;
+  }
+}
+
+.section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: space(10) 0 space(4);
+
+  h2 {
+    font-family: $font-display;
+    font-size: 1.25rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+  gap: space(4);
+
+  &--services {
+    grid-template-columns: repeat(auto-fill, minmax(21rem, 1fr));
+  }
+
+  @include down(sm) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

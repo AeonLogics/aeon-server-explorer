@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="40 40 2110 1490" role="img" aria-label="Aeon Logics">
+  <defs>
+    <linearGradient id="al-amethyst" gradientUnits="userSpaceOnUse" x1="60" y1="60" x2="2120" y2="1530">
+      <stop offset="0" stop-color="#a27bf4"/>
+      <stop offset="0.55" stop-color="#6d38cf"/>
+      <stop offset="1" stop-color="#4c2296"/>
+    </linearGradient>
+  </defs>
+  <g fill="url(#al-amethyst)" stroke="url(#al-amethyst)" stroke-width="24" stroke-linejoin="round">
+    <polygon points="220,335 695,725 70,930"/>
+    <polygon points="400,880 610,805 948,990 935,1028" stroke-width="6"/>
+    <circle cx="1092" cy="1050" r="118" stroke="none"/>
+    <polygon points="1172,960 1518,558 1595,640 1188,975" stroke-width="6"/>
+    <polygon points="1778,62 2122,400 1778,742 1438,400"/>
+    <polygon points="1243,1078 1440,1093 1412,1245 1230,1127" stroke-width="6"/>
+    <polygon points="1170,1143 1186,1128 1422,1312 1438,1362" stroke-width="6"/>
+    <circle cx="1725" cy="1228" r="276" stroke="none"/>
+  </g>
+  <line x1="1240" y1="985" x2="1628" y2="735" stroke="url(#al-amethyst)" stroke-width="24" stroke-linecap="round"/>
+</svg>
