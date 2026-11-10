@@ -3,3 +3,4 @@ target/
 .env
 **/*.rs.bk
 *.pdb
+*.tar

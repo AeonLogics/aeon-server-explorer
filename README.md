@@ -61,6 +61,65 @@ docker compose -f examples/demo/compose.yml down -v
 cargo leptos serve --release
 ```
 
+## Deploy to the server
+
+The image is built on the PC (the server has 1 CPU), copied over SSH and started with compose.
+Replace `aeon@192.168.100.26` if your server differs.
+
+**1. Build the image** (first build takes a while; later ones reuse the cache):
+
+```powershell
+docker build -t aeon-server-explorer:latest .
+```
+
+**2. Copy it to the server.** Use a file, not a pipe: PowerShell 5.1 breaks binary pipes.
+
+```powershell
+docker save -o explorer.tar aeon-server-explorer:latest
+scp explorer.tar aeon@192.168.100.26:/tmp/explorer.tar
+ssh aeon@192.168.100.26 "docker load -i /tmp/explorer.tar && rm /tmp/explorer.tar"
+Remove-Item explorer.tar
+```
+
+**3. First time only: put the compose file and `.env` in place.**
+
+```powershell
+ssh aeon@192.168.100.26 "mkdir -p ~/services/aeon-server-explorer"
+scp deploy/compose.yml aeon@192.168.100.26:~/services/aeon-server-explorer/compose.yml
+scp deploy/.env.example aeon@192.168.100.26:~/services/aeon-server-explorer/.env
+```
+
+Then on the server:
+
+```bash
+cd ~/services/aeon-server-explorer
+chmod 600 .env
+getent group docker | cut -d: -f3   # put this number in DOCKER_GID
+nano .env                           # set ADMIN_EMAIL, ADMIN_PASSWORD, DOCKER_GID
+```
+
+**4. Start it** (on the server):
+
+```bash
+cd ~/services/aeon-server-explorer
+docker compose up -d
+docker compose logs -f
+```
+
+Wait for `listening on http://localhost:5050`.
+
+**5. Open it from the PC.** Stop the local dev app first (it also uses port 5050), then:
+
+```powershell
+ssh -N -L 5050:localhost:5050 aeon@192.168.100.26
+```
+
+Keep that window open and browse to **http://localhost:5050**. The tunnel must use 5050 on both
+sides: the app rejects any other `Host`.
+
+**Updating later:** repeat steps 1, 2 and 4. The database lives in the `explorer-data` volume
+and survives updates. After the first login you can remove `ADMIN_PASSWORD` from `.env`.
+
 ## Configuration
 
 | Variable | Default | What it does |
