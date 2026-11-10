@@ -1,4 +1,6 @@
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "ssr")]
+use surrealdb::types::SurrealValue;
 
 pub const STANDALONE: &str = "(standalone)";
 pub const STANDALONE_SLUG: &str = "_standalone";
@@ -93,6 +95,8 @@ impl PortInfo {
 pub struct ServiceDetail {
     pub card: ServiceCard,
     pub project: Option<String>,
+    pub service: Option<String>,
+    pub redeploy_blocker: Option<String>,
     pub image_id: Option<String>,
     pub command: Option<String>,
     pub created: Option<String>,
@@ -135,6 +139,89 @@ pub struct StatsSample {
     pub cpus: u32,
     pub mem: u64,
     pub mem_limit: u64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Action {
+    Start,
+    Stop,
+    Restart,
+    Redeploy,
+}
+
+impl Action {
+    pub fn audit_name(self) -> &'static str {
+        match self {
+            Self::Start => "container.start",
+            Self::Stop => "container.stop",
+            Self::Restart => "container.restart",
+            Self::Redeploy => "container.redeploy",
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Start => "Start",
+            Self::Stop => "Stop",
+            Self::Restart => "Restart",
+            Self::Redeploy => "Redeploy",
+        }
+    }
+
+    pub fn done(self) -> &'static str {
+        match self {
+            Self::Start => "Started",
+            Self::Stop => "Stopped",
+            Self::Restart => "Restarted",
+            Self::Redeploy => "Redeployed",
+        }
+    }
+
+    // Stopping takes a service offline until someone starts it again, so it needs the name typed.
+    pub fn needs_typed_name(self) -> bool {
+        matches!(self, Self::Stop)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "ssr", derive(SurrealValue))]
+pub struct AuditEntry {
+    pub id: String,
+    pub at: String,
+    pub action: String,
+    pub actor: Option<String>,
+    pub target: Option<String>,
+    pub ip: Option<String>,
+    pub detail: Option<String>,
+    pub ok: Option<bool>,
+}
+
+impl AuditEntry {
+    pub fn failed(&self) -> bool {
+        self.ok == Some(false)
+            || matches!(
+                self.action.as_str(),
+                "login.failed" | "login.blocked" | "login.locked" | "password.change_failed"
+            )
+    }
+
+    pub fn describe(&self) -> &'static str {
+        match self.action.as_str() {
+            "admin.created" => "Admin account created",
+            "login.ok" => "Signed in",
+            "login.failed" => "Wrong email or password",
+            "login.blocked" => "Sign-in blocked while locked",
+            "login.locked" => "Locked after 5 failed tries",
+            "logout" => "Signed out",
+            "password.changed" => "Password changed",
+            "password.change_failed" => "Password change refused",
+            "container.start" => "Started container",
+            "container.stop" => "Stopped container",
+            "container.restart" => "Restarted container",
+            "container.redeploy" => "Redeployed service",
+            _ => "Other event",
+        }
+    }
 }
 
 pub fn network_hue(name: &str) -> u32 {

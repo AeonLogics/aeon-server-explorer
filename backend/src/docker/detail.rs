@@ -4,6 +4,7 @@ use chrono::{DateTime, Local, Utc};
 use shared::docker::{MountInfo, NetworkInfo, ServiceDetail};
 use shared::errors::docker::DockerError;
 
+use super::actions::Target;
 use super::summary::{card, list};
 use super::{LABEL_CONFIG_FILES, LABEL_PROJECT, LABEL_WORKING_DIR, humanize_secs, map_err};
 
@@ -21,6 +22,7 @@ pub async fn service(docker: &Docker, id: &str) -> Result<ServiceDetail, DockerE
         .ok_or(DockerError::NotFound)?;
     let card = card(&summary);
     let labels = summary.labels.clone().unwrap_or_default();
+    let target = Target::from_labels(card.container_name.clone(), &labels);
 
     let state = inspect.state.as_ref();
     let running = state.and_then(|s| s.running).unwrap_or(false);
@@ -92,6 +94,8 @@ pub async fn service(docker: &Docker, id: &str) -> Result<ServiceDetail, DockerE
     Ok(ServiceDetail {
         card,
         project: labels.get(LABEL_PROJECT).cloned(),
+        service: target.service.clone(),
+        redeploy_blocker: target.redeploy_blocker(),
         image_id: inspect.image.clone(),
         command: summary.command.clone().filter(|c| !c.is_empty()),
         created,

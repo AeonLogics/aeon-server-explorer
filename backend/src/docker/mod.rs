@@ -1,7 +1,9 @@
+mod actions;
 mod detail;
 mod streams;
 mod summary;
 
+pub use actions::{run, target, Target};
 pub use bollard::Docker;
 pub use detail::service;
 pub use streams::{logs, stats};
@@ -33,6 +35,12 @@ pub(crate) fn map_err(err: Error) -> DockerError {
             DockerError::Unavailable
         }
     }
+}
+
+pub fn local_time(rfc3339: &str) -> String {
+    chrono::DateTime::parse_from_rfc3339(rfc3339)
+        .map(|t| t.with_timezone(&chrono::Local).format("%Y-%m-%d %H:%M:%S").to_string())
+        .unwrap_or_else(|_| rfc3339.to_string())
 }
 
 pub(crate) fn humanize_secs(secs: i64) -> String {

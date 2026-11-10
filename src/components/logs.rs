@@ -23,7 +23,7 @@ enum Feed {
 }
 
 #[component]
-pub fn LogViewer(container: String) -> impl IntoView {
+pub fn LogViewer(container: String, #[prop(optional)] reconnect: Option<Callback<()>>) -> impl IntoView {
     let lines = RwSignal::new(Vec::<Line>::new());
     let held = StoredValue::new_local(Vec::<Line>::new());
     let held_count = RwSignal::new(0usize);
@@ -173,6 +173,16 @@ pub fn LogViewer(container: String) -> impl IntoView {
                     <span class=move || format!("dot {}", status().0) class:dot--pulse=move || status().0 == "is-ok"></span>
                     {move || status().1}
                 </span>
+                {reconnect.map(|reconnect| {
+                    view! {
+                        <Show when=move || matches!(feed.get(), Feed::Ended | Feed::Failed(_))>
+                            <button type="button" class="tool-btn" on:click=move |_| reconnect.run(())>
+                                <Ico icon=icondata::LuRefreshCw />
+                                "Reconnect"
+                            </button>
+                        </Show>
+                    }
+                })}
 
                 <label class="logs__filter">
                     <Ico icon=icondata::LuSearch />

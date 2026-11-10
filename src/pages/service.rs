@@ -1,11 +1,12 @@
 use leptos::prelude::*;
 use leptos_router::hooks::{use_location, use_navigate};
 use leptos_router::NavigateOptions;
-use shared::docker::ServiceDetail;
+use shared::docker::{Action, ServiceDetail};
 
 use super::common::DockerProblem;
 use super::project::kind_style;
 use crate::api::docker::get_service;
+use crate::components::actions::ActionBar;
 use crate::components::chips::{NetworkChip, PortChip};
 use crate::components::icon::Ico;
 use crate::components::logs::LogViewer;
@@ -34,12 +35,24 @@ pub fn ServicePanel() -> impl IntoView {
     watch_session(move || detail.get().and_then(Result::err));
 
     let tab = RwSignal::new(Tab::Logs);
+    let dialog = RwSignal::new(None::<Action>);
+    // Bumped after an action, so logs and stats reconnect to the (possibly new) container.
+    let epoch = RwSignal::new(0u32);
+    let on_done = Callback::new(move |_: Action| {
+        epoch.update(|e| *e += 1);
+        tick.update(|t| *t = t.wrapping_add(1));
+    });
 
     let navigate = use_navigate();
     Effect::new(move |_| {
         let navigate = navigate.clone();
         let handle = window_event_listener(leptos::ev::keydown, move |ev| {
-            if ev.key() == "Escape" {
+            if ev.key() != "Escape" {
+                return;
+            }
+            if dialog.get_untracked().is_some() {
+                dialog.set(None);
+            } else {
                 navigate(&format!("/p/{}", slug.get_untracked()), NavigateOptions::default());
             }
         });
@@ -67,7 +80,10 @@ pub fn ServicePanel() -> impl IntoView {
                 </a>
             </header>
 
+            <ActionBar detail=Signal::derive(loaded) dialog on_done />
+
             {move || {
+                epoch.track();
                 let c = container.get();
                 view! { <StatsStrip container=c /> }
             }}
@@ -94,8 +110,10 @@ pub fn ServicePanel() -> impl IntoView {
             <div class="panel__body">
                 <div class="panel__logs" class:is-hidden=move || tab.get() != Tab::Logs>
                     {move || {
+                        epoch.track();
                         let c = container.get();
-                        view! { <LogViewer container=c /> }
+                        let reconnect = Callback::new(move |_: ()| epoch.update(|e| *e += 1));
+                        view! { <LogViewer container=c reconnect /> }
                     }}
                 </div>
 

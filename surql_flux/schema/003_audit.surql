@@ -14,5 +14,8 @@ DEFINE FIELD OVERWRITE user_agent ON audit TYPE option<string> READONLY
     ASSERT $value = NONE OR string::len($value) <= 512;
 DEFINE FIELD OVERWRITE detail ON audit TYPE option<string> READONLY
     ASSERT $value = NONE OR string::len($value) <= 512;
+DEFINE FIELD OVERWRITE target ON audit TYPE option<string> READONLY
+    ASSERT $value = NONE OR string::len($value) <= 300;
+DEFINE FIELD OVERWRITE ok ON audit TYPE option<bool> READONLY;
 
 DEFINE INDEX OVERWRITE audit_at ON audit FIELDS at;

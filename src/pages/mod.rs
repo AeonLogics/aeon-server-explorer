@@ -1,3 +1,4 @@
+mod audit;
 mod change_password;
 mod common;
 mod gate;
@@ -7,6 +8,7 @@ mod project;
 mod service;
 mod sidebar;
 
+pub use audit::AuditPage;
 pub use common::NotFound;
 pub use gate::Gate;
 pub use overview::OverviewPage;

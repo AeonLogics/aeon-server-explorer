@@ -29,6 +29,27 @@ impl<'a> From<AuthQuery> for Cow<'a, str> {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AuditQuery {
+    Record,
+    List,
+}
+
+impl AuditQuery {
+    pub const fn surql(self) -> &'static str {
+        match self {
+            Self::Record => include_str!("audit/record.surql"),
+            Self::List => include_str!("audit/list.surql"),
+        }
+    }
+}
+
+impl<'a> From<AuditQuery> for Cow<'a, str> {
+    fn from(query: AuditQuery) -> Self {
+        Cow::Borrowed(query.surql())
+    }
+}
+
 pub const SCHEMA: &[(&str, &str)] = &[
     ("001_user", include_str!("../../../surql_flux/schema/001_user.surql")),
     ("002_session", include_str!("../../../surql_flux/schema/002_session.surql")),

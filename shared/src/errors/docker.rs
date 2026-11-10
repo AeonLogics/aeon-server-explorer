@@ -16,6 +16,8 @@ pub enum DockerError {
     Unavailable,
     #[error("That container doesn't exist anymore.")]
     NotFound,
+    #[error("{0}")]
+    Failed(String),
     #[error(transparent)]
     Internal(#[from] InternalServerError),
     #[error("Connection error {0}")]
