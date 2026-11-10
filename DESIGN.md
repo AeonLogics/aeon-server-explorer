@@ -56,8 +56,8 @@ against ports already in use.
                                      └────────────────────────────┘
 ```
 
-- **Rust, Leptos 0.8 + Axum**, built with `cargo-leptos` (SSR + hydrate), same layout as
-  `cake-delight`.
+- **Rust, Leptos 0.8 + Axum**, built with `cargo-leptos` (SSR + hydrate), same layout and
+  patterns as `R:\aeonlogics` (the reference project).
 - **Docker**: `bollard` over the local socket (named pipe `//./pipe/docker_engine` on
   Windows/Docker Desktop, `/var/run/docker.sock` on the server).
 - **Live data**: logs and CPU/RAM stats are streamed with **Server-Sent Events** from plain
@@ -74,7 +74,7 @@ against ports already in use.
   src/
     app.rs            shell, router
     model.rs          shared types (ProjectSummary, ServiceCard, ServiceDetail, …)
-    auth/             login, sessions, AuthStore (copied from cake-delight, single admin)
+    auth/             login, sessions, AuthStore (patterns from aeonlogics, single admin)
     docker/           ssr only: bollard client, project/service queries, SSE routes
     guard.rs          ssr only: loopback-only bind check, Host-header check
     audit.rs          ssr only: audit log writes
