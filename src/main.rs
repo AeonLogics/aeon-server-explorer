@@ -1,3 +1,5 @@
+#![recursion_limit = "256"]
+
 // Embedded SurrealDB needs far more stack than Windows gives the main thread (1 MB).
 #[cfg(feature = "ssr")]
 const STACK_SIZE: usize = 16 * 1024 * 1024;
