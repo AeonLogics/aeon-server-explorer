@@ -19,6 +19,7 @@ pub fn Sidebar(admin: Admin) -> impl IntoView {
     let current_slug = move || route_parts(&location.pathname.get()).0;
     let on_home = move || location.pathname.get() == "/";
     let on_audit = move || location.pathname.get() == "/audit";
+    let on_stacks = move || location.pathname.get().starts_with("/stacks");
 
     let projects = move || {
         overview
@@ -57,6 +58,10 @@ pub fn Sidebar(admin: Admin) -> impl IntoView {
             <a class="side-link" class:is-active=on_home href="/">
                 <Ico icon=icondata::LuLayoutDashboard />
                 "Overview"
+            </a>
+            <a class="side-link" class:is-active=on_stacks href="/stacks">
+                <Ico icon=icondata::LuLayers />
+                "Stacks"
             </a>
             <a class="side-link" class:is-active=on_audit href="/audit">
                 <Ico icon=icondata::LuScrollText />

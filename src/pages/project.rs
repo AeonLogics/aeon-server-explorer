@@ -4,6 +4,7 @@ use shared::docker::{ProjectDetail, ServiceCard as Card, ServiceKind};
 
 use super::common::{CardSkeletons, DockerProblem};
 use crate::api::docker::get_project;
+use crate::api::stacks::is_managed;
 use crate::components::chips::{NetworkChip, PortChip};
 use crate::components::icon::Ico;
 use crate::components::poll::{route_parts, watch_session, Tick};
@@ -16,6 +17,7 @@ pub fn ProjectPage() -> impl IntoView {
     let slug = Memo::new(move |_| route_parts(&location.pathname.get()).0.unwrap_or_default());
 
     let project = Resource::new(move || (slug.get(), tick.get()), |(slug, _)| get_project(slug));
+    let managed = Resource::new(move || slug.get(), is_managed);
     watch_session(move || project.get().and_then(Result::err));
 
     view! {
@@ -25,7 +27,10 @@ pub fn ProjectPage() -> impl IntoView {
                     project
                         .get()
                         .map(|result| match result {
-                            Ok(detail) => view! { <ProjectBody detail /> }.into_any(),
+                            Ok(detail) => {
+                                let managed = managed.get().and_then(Result::ok).unwrap_or(false);
+                                view! { <ProjectBody detail managed /> }.into_any()
+                            }
                             Err(error) => view! { <DockerProblem error /> }.into_any(),
                         })
                 }}
@@ -35,7 +40,7 @@ pub fn ProjectPage() -> impl IntoView {
 }
 
 #[component]
-fn ProjectBody(detail: ProjectDetail) -> impl IntoView {
+fn ProjectBody(detail: ProjectDetail, managed: bool) -> impl IntoView {
     let summary = detail.summary;
     let slug = summary.slug.clone();
 
@@ -56,6 +61,9 @@ fn ProjectBody(detail: ProjectDetail) -> impl IntoView {
                     })}
                 </p>
             </div>
+            {managed.then(|| view! {
+                <a class="btn btn--secondary" href=format!("/stacks/{slug}")>"Edit stack"</a>
+            })}
             {(summary.exposed_ports > 0).then(|| view! {
                 <p class="notice notice--warn">
                     <Ico icon=icondata::LuTriangleAlert />

@@ -19,10 +19,14 @@ impl Filter {
         match self {
             Self::All => true,
             Self::Problems => e.failed(),
-            Self::Containers => e.action.starts_with("container."),
-            Self::Access => !e.action.starts_with("container."),
+            Self::Containers => is_change(e),
+            Self::Access => !is_change(e),
         }
     }
+}
+
+fn is_change(e: &AuditEntry) -> bool {
+    ["container.", "stack.", "env."].iter().any(|p| e.action.starts_with(p))
 }
 
 #[component]
@@ -65,7 +69,7 @@ pub fn AuditPage() -> impl IntoView {
                 <div class="segmented" role="tablist">
                     <FilterTab filter which=Filter::All label="All" />
                     <FilterTab filter which=Filter::Problems label="Problems" />
-                    <FilterTab filter which=Filter::Containers label="Containers" />
+                    <FilterTab filter which=Filter::Containers label="Changes" />
                     <FilterTab filter which=Filter::Access label="Sign-ins" />
                 </div>
                 <label class="search search--wide">
@@ -138,7 +142,7 @@ fn FilterTab(filter: RwSignal<Filter>, which: Filter, label: &'static str) -> im
 #[component]
 fn AuditRow(entry: AuditEntry) -> impl IntoView {
     let failed = entry.failed();
-    let icon = if entry.action.starts_with("container.") {
+    let icon = if is_change(&entry) {
         icondata::LuBox
     } else if entry.action.starts_with("login") || entry.action == "logout" {
         icondata::LuLogIn

@@ -220,6 +220,10 @@ impl AuditEntry {
             "container.stop" => "Stopped container",
             "container.restart" => "Restarted container",
             "container.redeploy" => "Redeployed service",
+            "stack.create" => "Created stack",
+            "stack.save" => "Saved stack",
+            "stack.apply" => "Deployed stack",
+            "env.reveal" => "Revealed an env value",
             _ => "Other event",
         }
     }

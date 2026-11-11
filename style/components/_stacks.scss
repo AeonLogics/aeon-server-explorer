@@ -1,0 +1,91 @@
+@use '../base' as *;
+
+.create {
+  display: grid;
+  grid-template-columns: minmax(0, 16rem) auto;
+  align-items: end;
+  gap: space(2) space(3);
+  margin-bottom: space(6);
+  padding: space(5);
+  @include sheet;
+
+  &--service {
+    grid-template-columns: minmax(0, 12rem) minmax(0, 1fr) auto;
+    margin-top: space(4);
+  }
+
+  &__hint {
+    grid-column: 1 / -1;
+    color: $faint;
+    font-size: $text-sm;
+  }
+
+  @include down(md) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  select.field__input {
+    padding-right: space(8);
+    cursor: pointer;
+  }
+}
+
+.badge.is-neutral {
+  background: $sunken-2;
+  color: $muted;
+}
+
+.table__row--services {
+  grid-template-columns: minmax(10rem, 1fr) minmax(12rem, 1.6fr) 8rem 2rem;
+}
+
+.table__empty {
+  padding: space(5);
+  color: $faint;
+  font-size: $text-sm;
+}
+
+.flash {
+  margin-top: space(4);
+  padding: space(3) space(4);
+  border-radius: $radius;
+  font-size: $text-sm;
+
+  &.is-ok {
+    background: $ok-wash;
+    color: $ok;
+  }
+
+  &.is-err {
+    background: $down-wash;
+    color: $down;
+  }
+}
+
+.compose {
+  margin-top: space(4);
+  @include sheet;
+
+  summary {
+    padding: space(3) space(5);
+    color: $muted;
+    font-size: $text-sm;
+    cursor: pointer;
+
+    &:hover {
+      color: $text;
+    }
+  }
+
+  pre {
+    margin: 0;
+    padding: space(4) space(5);
+    overflow-x: auto;
+    border-top: 1px solid $line;
+    background: $sunken;
+    border-radius: 0 0 $radius-lg $radius-lg;
+    font-family: $font-mono;
+    font-size: $text-xs;
+    line-height: 1.7;
+  }
+}

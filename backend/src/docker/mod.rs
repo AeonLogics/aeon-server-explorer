@@ -4,6 +4,8 @@ mod streams;
 mod summary;
 
 pub use actions::{run, target, Target};
+pub(crate) use actions::{cli, Busy};
+pub(crate) use summary::list as list_containers;
 pub use bollard::Docker;
 pub use detail::service;
 pub use streams::{logs, stats};

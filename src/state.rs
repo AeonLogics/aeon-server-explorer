@@ -11,6 +11,7 @@ pub struct AppState {
     pub leptos_options: LeptosOptions,
     pub db: Db,
     pub docker: Docker,
+    pub stacks: backend::stacks::Stacks,
     pub allowed_hosts: Arc<[String]>,
 }
 

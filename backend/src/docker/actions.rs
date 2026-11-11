@@ -94,10 +94,10 @@ pub async fn target(docker: &Docker, container: &str) -> Result<Target, DockerEr
 static BUSY: Mutex<Option<HashSet<String>>> = Mutex::new(None);
 
 // One action per compose project at a time, so two clicks can't race each other.
-struct Busy(String);
+pub(crate) struct Busy(String);
 
 impl Busy {
-    fn claim(key: String) -> Result<Self, DockerError> {
+    pub(crate) fn claim(key: String) -> Result<Self, DockerError> {
         let mut guard = BUSY.lock().unwrap_or_else(|e| e.into_inner());
         let set = guard.get_or_insert_with(HashSet::new);
         if !set.insert(key.clone()) {
@@ -176,7 +176,7 @@ async fn redeploy(target: &Target) -> Result<(), DockerError> {
 }
 
 // Runs the docker CLI with explicit arguments, never through a shell.
-async fn cli(args: &[&str], limit: Duration) -> Result<(), DockerError> {
+pub(crate) async fn cli(args: &[&str], limit: Duration) -> Result<(), DockerError> {
     let mut command = tokio::process::Command::new("docker");
     command
         .args(args)

@@ -75,10 +75,14 @@ async fn serve() {
         Err(e) => log!("docker is not reachable yet ({e}); the UI will show it as offline"),
     }
 
+    let stacks = backend::stacks::Stacks::from_env();
+    log!("stacks folder: {}", stacks.root().display());
+
     let app_state = AppState {
         leptos_options,
         db,
         docker,
+        stacks,
         allowed_hosts,
     };
     let routes = generate_route_list(App);

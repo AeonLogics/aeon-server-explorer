@@ -1,6 +1,7 @@
 pub mod audit;
 pub mod auth;
 pub mod docker;
+pub mod stacks;
 
 #[cfg(feature = "ssr")]
 pub(crate) mod queries;
