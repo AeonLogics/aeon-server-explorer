@@ -37,7 +37,7 @@ pub struct Stacks {
 }
 
 impl Stacks {
-    // STACKS_DIR on the server is /home/aeon/services; locally it defaults to data/stacks.
+    // STACKS_DIR points at the folder holding every stack; locally it defaults to data/stacks.
     pub fn from_env() -> Self {
         let root = std::env::var("STACKS_DIR")
             .ok()

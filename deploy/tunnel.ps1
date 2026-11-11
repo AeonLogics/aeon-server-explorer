@@ -1,7 +1,7 @@
 # Keeps http://localhost:5050 connected to the explorer on the server.
 # Reconnects on its own after sleep, Wi-Fi drops or a server reboot.
 param(
-    [string]$Server = "aeon@192.168.100.26",
+    [string]$Server = $(if ($env:EXPLORER_SERVER) { $env:EXPLORER_SERVER } else { "user@your-server" }),
     [int]$Port = 5050
 )
 

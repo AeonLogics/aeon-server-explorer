@@ -1,6 +1,6 @@
 name: aeon-server-explorer
 
-# Goes to ~/services/aeon-server-explorer/compose.yml on the server, next to its .env.
+# Goes next to its .env in a folder on the server, e.g. ~/services/aeon-server-explorer/.
 services:
   explorer:
     image: aeon-server-explorer:latest
@@ -17,8 +17,9 @@ services:
       - "${DOCKER_GID:?set DOCKER_GID in .env}"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      # Same path inside and out, so Redeploy finds each stack's compose file.
-      - /home/aeon/services:/home/aeon/services:ro
+      # Same path inside and out, so Redeploy finds each stack's compose file and relative
+      # paths in them still point at the right server folders. Writable for managed stacks.
+      - "${STACKS_DIR:?set STACKS_DIR in .env}:${STACKS_DIR}"
       - explorer-data:/app/data
     read_only: true
     tmpfs:
