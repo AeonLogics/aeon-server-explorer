@@ -1,0 +1,125 @@
+@use '../base' as *;
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: space(3);
+  margin-bottom: space(4);
+}
+
+.segmented {
+  display: inline-flex;
+  padding: 2px;
+  background: $sunken-2;
+  border-radius: $radius;
+
+  &__item {
+    height: 1.875rem;
+    padding: 0 space(3);
+    border-radius: $radius-sm;
+    color: $muted;
+    font-size: $text-sm;
+    font-weight: 500;
+    @include focus-ring;
+
+    &:hover {
+      color: $text;
+    }
+
+    &.is-active {
+      background: $sheet;
+      color: $text;
+      box-shadow: 0 0 0 1px $line;
+    }
+  }
+}
+
+.audit {
+  overflow: hidden;
+  @include sheet;
+
+  &__row {
+    display: grid;
+    grid-template-columns: 9.5rem minmax(14rem, 1.6fr) minmax(10rem, 1.2fr) minmax(8rem, 1fr) 7rem;
+    align-items: center;
+    gap: space(4);
+    min-height: 3rem;
+    padding: space(2) space(5);
+    border-top: 1px solid $line;
+    font-size: $text-sm;
+
+    &:first-child {
+      border-top: 0;
+    }
+
+    &--head {
+      min-height: 2.5rem;
+      background: $sunken;
+      @include mono-label;
+    }
+
+    @include down(lg) {
+      grid-template-columns: minmax(0, 1fr);
+      gap: space(1);
+      padding: space(3) space(4);
+
+      &--head {
+        display: none;
+      }
+    }
+  }
+
+  &__time,
+  &__mono {
+    min-width: 0;
+    color: $faint;
+    font-family: $font-mono;
+    font-size: $text-xs;
+    @include truncate;
+  }
+
+  &__event {
+    display: flex;
+    align-items: center;
+    gap: space(3);
+    min-width: 0;
+  }
+
+  &__icon {
+    flex: none;
+    color: $faint;
+    font-size: 0.85rem;
+
+    &.is-failed {
+      color: $down;
+    }
+  }
+
+  &__what {
+    display: grid;
+    min-width: 0;
+    line-height: 1.4;
+
+    strong {
+      font-weight: 500;
+    }
+  }
+
+  &__row.is-failed &__what strong {
+    color: $down;
+  }
+
+  &__detail {
+    color: $muted;
+    font-size: $text-xs;
+    overflow-wrap: anywhere;
+  }
+
+  &__actor {
+    min-width: 0;
+    color: $muted;
+    @include truncate;
+  }
+}

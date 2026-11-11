@@ -1,0 +1,176 @@
+@use '../base' as *;
+
+.app {
+  display: grid;
+  grid-template-columns: $sidebar-width minmax(0, 1fr);
+  min-height: 100vh;
+
+  @include down(lg) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.main {
+  min-width: 0;
+  padding: space(10) space(12) space(16);
+
+  @include down(xl) {
+    padding: space(8) space(6) space(12);
+  }
+
+  @include down(sm) {
+    padding: space(5) space(4) space(10);
+  }
+}
+
+.topbar {
+  display: none;
+
+  @include down(lg) {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    display: flex;
+    align-items: center;
+    gap: space(2);
+    height: 3.25rem;
+    padding: 0 space(3);
+    background: $sheet;
+    border-bottom: 1px solid $line;
+  }
+
+  &__brand {
+    display: inline-flex;
+    align-items: center;
+    gap: space(2);
+    font-family: $font-display;
+    font-weight: 600;
+  }
+}
+
+.scrim {
+  display: none;
+
+  @include down(lg) {
+    .is-nav-open & {
+      position: fixed;
+      inset: 0;
+      z-index: 40;
+      display: block;
+      background: rgba(27, 21, 48, 0.24);
+    }
+  }
+}
+
+.page {
+  max-width: 76rem;
+  margin: 0 auto;
+  animation: settle 0.25s ease both;
+
+  &__head {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: space(6);
+    margin-bottom: space(8);
+
+    @include down(md) {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+  }
+
+  &__titles {
+    display: grid;
+    gap: space(2);
+    min-width: 0;
+  }
+
+  &__title {
+    font-family: $font-display;
+    font-size: 1.875rem;
+    font-weight: 600;
+    letter-spacing: -0.025em;
+    line-height: 1.15;
+    overflow-wrap: anywhere;
+  }
+
+  &__lead {
+    color: $muted;
+  }
+
+  &__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: space(2) space(4);
+    color: $muted;
+  }
+
+  &__meta-mono {
+    color: $faint;
+    font-family: $font-mono;
+    font-size: $text-xs;
+    line-height: 1.9;
+    @include truncate;
+  }
+}
+
+@keyframes settle {
+  from {
+    opacity: 0;
+  }
+}
+
+.crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: space(2);
+  margin-bottom: space(3);
+  color: $faint;
+  font-size: $text-sm;
+
+  a:hover {
+    color: $text;
+  }
+
+  span:last-child {
+    color: $muted;
+  }
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+  gap: space(4);
+
+  &--services {
+    grid-template-columns: repeat(auto-fill, minmax(22rem, 1fr));
+  }
+
+  @include down(sm) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.kv {
+  display: grid;
+  grid-template-columns: 7.5rem minmax(0, 1fr);
+  gap: space(2) space(3);
+  font-size: $text-sm;
+
+  dt {
+    color: $faint;
+  }
+
+  dd {
+    min-width: 0;
+    overflow-wrap: anywhere;
+
+    &.is-mono {
+      font-family: $font-mono;
+      font-size: $text-xs;
+      line-height: 1.75;
+    }
+  }
+}

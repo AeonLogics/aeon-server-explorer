@@ -1,0 +1,43 @@
+# Build output
+target/
+**/target/
+pkg/
+end2end/test-results/
+end2end/playwright-report/
+**/*.rs.bk
+*.pdb
+
+# Local data: the embedded database and managed stacks live here
+/data/
+
+# Secrets and local settings
+.env
+.env.*
+!.env.example
+deploy/.env
+!deploy/.env.example
+*.pem
+*.key
+
+# Image tarballs from `docker save`
+*.tar
+*.tar.gz
+
+# Private notes (design history, hand-off brief, learning list)
+/notes/
+
+# Editors and OS files
+.idea/
+.vscode/
+.zed/
+*.swp
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs and scratch
+*.log
+logs/
+tmp/
+node_modules/

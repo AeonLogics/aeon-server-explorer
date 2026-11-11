@@ -1,0 +1,452 @@
+@use '../base' as *;
+
+.table {
+  overflow: hidden;
+  @include sheet;
+
+  &__row {
+    display: grid;
+    grid-template-columns: minmax(12rem, 2fr) 7rem minmax(10rem, 2fr) 2rem;
+    align-items: center;
+    gap: space(4);
+    min-height: 3.25rem;
+    padding: 0 space(5);
+    border-top: 1px solid $line;
+    transition: background-color 0.12s ease;
+    @include focus-ring;
+
+    &:first-child {
+      border-top: 0;
+    }
+
+    &:not(.table__row--head):hover {
+      background: $sunken;
+    }
+
+    &--head {
+      min-height: 2.5rem;
+      background: $sunken;
+      @include mono-label;
+    }
+
+    @include down(md) {
+      grid-template-columns: minmax(0, 1fr) auto;
+      padding: space(3) space(4);
+
+      &--head {
+        display: none;
+      }
+    }
+  }
+
+  &__name {
+    display: flex;
+    align-items: center;
+    gap: space(3);
+    min-width: 0;
+    font-weight: 500;
+
+    span:last-child {
+      @include truncate;
+    }
+
+    .is-standalone {
+      color: $faint;
+      font-weight: 400;
+    }
+  }
+
+  &__mono {
+    color: $muted;
+    font-family: $font-mono;
+    font-size: $text-xs;
+  }
+
+  &__note {
+    color: $warn;
+    font-size: $text-sm;
+    @include truncate;
+
+    &.is-calm {
+      color: $disabled;
+    }
+
+    @include down(md) {
+      grid-column: 1 / -1;
+    }
+  }
+
+  &__go {
+    justify-self: end;
+    color: $disabled;
+
+    @include down(md) {
+      display: none;
+    }
+  }
+
+  &__row:hover &__go {
+    color: $accent;
+  }
+}
+
+// ── Overview status board ───────────────────────────────────────────────────
+.board-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: space(6) space(10);
+  margin-bottom: space(6);
+
+  &__text {
+    display: grid;
+    gap: space(2);
+    min-width: 0;
+    max-width: 44rem;
+  }
+
+  &__title {
+    font-family: $font-display;
+    font-size: clamp(2rem, 1.4rem + 1.8vw, 2.75rem);
+    font-weight: 600;
+    letter-spacing: -0.035em;
+    line-height: 1.08;
+  }
+
+  &__lead.is-warn {
+    color: $warn;
+  }
+
+  &__lead.is-ok {
+    color: $ok;
+  }
+
+  &__sub {
+    color: $muted;
+    font-size: $text-md;
+  }
+
+  &__numbers {
+    display: flex;
+    gap: space(8);
+
+    dt {
+      @include mono-label;
+    }
+
+    dd {
+      font-family: $font-display;
+      font-size: 1.75rem;
+      font-weight: 600;
+      letter-spacing: -0.03em;
+      line-height: 1.15;
+      font-variant-numeric: tabular-nums;
+    }
+
+    small {
+      color: $faint;
+      font-family: $font-sans;
+      font-size: $text-sm;
+      font-weight: 400;
+      letter-spacing: 0;
+    }
+  }
+}
+
+.square {
+  display: inline-block;
+  flex: none;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 3px;
+  background: $sunken-2;
+  transition: transform 0.12s ease;
+
+  &.is-ok {
+    background: $ok-dot;
+  }
+
+  &.is-warn {
+    background: $warn-dot;
+  }
+
+  &.is-down {
+    background: $down-wash;
+    box-shadow: inset 0 0 0 1px $down-dot;
+  }
+
+  &--small {
+    width: 0.625rem;
+    height: 0.625rem;
+    border-radius: 2px;
+  }
+}
+
+a.square:hover {
+  transform: scale(1.2);
+}
+
+.strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: space(4) space(8);
+  margin-bottom: space(4);
+  padding: space(5) space(6);
+  @include sheet;
+
+  &__groups {
+    display: flex;
+    flex-wrap: wrap;
+    gap: space(5) space(8);
+  }
+
+  &__group {
+    display: grid;
+    gap: space(2);
+  }
+
+  &__squares {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    max-width: 20rem;
+  }
+
+  &__name {
+    color: $faint;
+    font-family: $font-mono;
+    font-size: $text-2xs;
+
+    &:hover {
+      color: $text;
+    }
+
+    &.is-standalone {
+      font-style: italic;
+    }
+  }
+
+  &__legend {
+    display: flex;
+    gap: space(4);
+    color: $faint;
+    font-size: $text-xs;
+
+    span {
+      display: inline-flex;
+      align-items: center;
+      gap: space(1);
+    }
+
+    .square {
+      width: 0.625rem;
+      height: 0.625rem;
+    }
+  }
+}
+
+.board-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: space(4);
+
+  @include down(lg) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.board-card {
+  display: grid;
+  align-content: start;
+  gap: space(2);
+  padding: space(5) space(6);
+  @include sheet;
+
+  &__calm {
+    padding: space(4) 0 space(2);
+    color: $faint;
+    font-size: $text-sm;
+  }
+
+  &__more {
+    justify-self: start;
+    margin-top: space(2);
+    color: $accent;
+    font-size: $text-sm;
+
+    &:hover {
+      color: $accent-hover;
+    }
+  }
+}
+
+.needs {
+  display: grid;
+}
+
+.need {
+  display: flex;
+  align-items: center;
+  gap: space(3);
+  padding: space(3) 0;
+  border-top: 1px solid $line;
+
+  &:first-child {
+    border-top: 0;
+  }
+
+  &__text {
+    display: grid;
+    flex: 1;
+    min-width: 0;
+    line-height: 1.4;
+
+    strong {
+      font-size: $text-base;
+      font-weight: 500;
+      @include truncate;
+    }
+
+    span {
+      color: $faint;
+      font-size: $text-xs;
+      @include truncate;
+    }
+
+    &:hover strong {
+      color: $accent;
+    }
+  }
+
+  &__mono {
+    font-family: $font-mono;
+  }
+}
+
+.btn--small {
+  min-height: 2rem;
+  padding: 0 space(3);
+  font-size: $text-sm;
+}
+
+.timeline {
+  display: grid;
+  gap: space(3);
+  margin-top: space(2);
+  padding-left: space(4);
+  border-left: 1px solid $line-strong;
+
+  li {
+    position: relative;
+    display: grid;
+    gap: 0.1rem;
+
+    &::before {
+      content: '';
+      position: absolute;
+      left: calc(-#{space(4)} - 3.5px);
+      top: 0.45rem;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: $sheet;
+      box-shadow: inset 0 0 0 1.5px $faint;
+    }
+
+    &.is-failed::before {
+      box-shadow: inset 0 0 0 1.5px $down-dot;
+    }
+  }
+
+  &__what {
+    font-size: $text-sm;
+  }
+
+  &__meta {
+    color: $faint;
+    font-family: $font-mono;
+    font-size: $text-2xs;
+    white-space: pre;
+    @include truncate;
+  }
+}
+
+.board-label {
+  display: block;
+  margin: space(8) 0 space(3);
+}
+
+.board-projects {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  gap: space(3);
+}
+
+.tile-project {
+  position: relative;
+  display: grid;
+  gap: space(3);
+  padding: space(4) space(5);
+  transition: border-color 0.12s ease;
+  @include sheet;
+  @include focus-ring;
+
+  &:hover {
+    border-color: $line-strong;
+  }
+
+  &__head {
+    display: flex;
+    align-items: baseline;
+    gap: space(3);
+    padding-right: space(5);
+  }
+
+  &__name {
+    flex: 1;
+    min-width: 0;
+    font-family: $font-display;
+    font-size: 1.0625rem;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    @include truncate;
+
+    &.is-standalone {
+      color: $faint;
+      font-style: italic;
+    }
+  }
+
+  &__count {
+    color: $faint;
+    font-family: $font-mono;
+    font-size: $text-xs;
+  }
+
+  &__squares {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+  }
+
+  &__services {
+    color: $faint;
+    font-family: $font-mono;
+    font-size: $text-2xs;
+    @include truncate;
+  }
+
+  &__go {
+    position: absolute;
+    top: space(4);
+    right: space(4);
+    color: $disabled;
+  }
+
+  &:hover &__go {
+    color: $accent;
+  }
+}

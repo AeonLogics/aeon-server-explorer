@@ -1,0 +1,141 @@
+@use '../base' as *;
+
+.stats {
+  display: grid;
+  @include sheet;
+
+  &.is-stopped {
+    color: $faint;
+  }
+}
+
+.stat-tile {
+  display: grid;
+  gap: space(2);
+  padding: space(4) space(5);
+
+  & + & {
+    border-top: 1px solid $line;
+  }
+
+  &__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  &__label {
+    display: inline-flex;
+    align-items: center;
+    gap: space(2);
+    @include mono-label;
+
+    .ico {
+      font-size: 0.8rem;
+    }
+  }
+
+  &__live,
+  &__pct {
+    color: $disabled;
+    font-family: $font-mono;
+    font-size: $text-2xs;
+  }
+
+  &__live.is-live {
+    color: $ok;
+  }
+
+  &__value {
+    display: flex;
+    align-items: baseline;
+    gap: 0.15rem;
+    min-width: 0;
+
+    strong {
+      font-family: $font-display;
+      font-size: 1.5rem;
+      font-weight: 600;
+      letter-spacing: -0.03em;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+    }
+  }
+
+  &__unit {
+    color: $muted;
+    font-size: $text-md;
+  }
+
+  &__sub {
+    margin-left: space(2);
+    color: $faint;
+    font-size: $text-xs;
+    @include truncate;
+  }
+}
+
+.spark {
+  position: relative;
+  height: 2.75rem;
+
+  svg {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+
+  &__base {
+    stroke: $line;
+    stroke-width: 1;
+    vector-effect: non-scaling-stroke;
+  }
+
+  &__area {
+    fill: rgba(91, 43, 176, 0.07);
+  }
+
+  &__line {
+    fill: none;
+    stroke: $accent;
+    stroke-width: 1.5;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+    vector-effect: non-scaling-stroke;
+  }
+
+  &__cross {
+    stroke: $line-strong;
+    stroke-width: 1;
+    vector-effect: non-scaling-stroke;
+  }
+
+  &__hit {
+    fill: transparent;
+  }
+
+  &__head {
+    position: absolute;
+    width: 0.4375rem;
+    height: 0.4375rem;
+    border-radius: 50%;
+    background: $accent;
+    box-shadow: 0 0 0 2px $sheet;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+  }
+
+  &__tip {
+    position: absolute;
+    bottom: calc(100% + 0.25rem);
+    padding: 0.15rem space(2);
+    background: $text;
+    border-radius: $radius-sm;
+    color: $sheet;
+    font-family: $font-mono;
+    font-size: $text-2xs;
+    white-space: nowrap;
+    transform: translateX(-50%);
+    pointer-events: none;
+  }
+}

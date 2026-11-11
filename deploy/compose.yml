@@ -1,0 +1,31 @@
+name: aeon-server-explorer
+
+# Goes next to its .env in a folder on the server, e.g. ~/services/aeon-server-explorer/.
+services:
+  explorer:
+    image: aeon-server-explorer:latest
+    container_name: aeon-server-explorer
+    restart: unless-stopped
+    # Host networking, so 127.0.0.1:5050 is the server's own loopback (reach it via an SSH tunnel).
+    network_mode: host
+    env_file: .env
+    labels:
+      dev.aeonlogics.explorer.self: "true"
+    environment:
+      DOCKER_CONFIG: /tmp/docker
+    group_add:
+      - "${DOCKER_GID:?set DOCKER_GID in .env}"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Same path inside and out, so Redeploy finds each stack's compose file and relative
+      # paths in them still point at the right server folders. Writable for managed stacks.
+      - "${STACKS_DIR:?set STACKS_DIR in .env}:${STACKS_DIR}"
+      - explorer-data:/app/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  explorer-data:

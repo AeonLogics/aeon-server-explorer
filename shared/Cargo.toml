@@ -1,0 +1,15 @@
+[package]
+name = "shared"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+garde = { version = "0.23", features = ["derive", "email"] }
+serde = { version = "1", features = ["derive"] }
+surrealdb = { version = "3.3", default-features = false, optional = true }
+thiserror = "2"
+server_fn = "0.8"
+colored = { version = "3", optional = true }
+
+[features]
+ssr = ["dep:surrealdb", "dep:colored"]

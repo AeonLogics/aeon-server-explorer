@@ -1,0 +1,67 @@
+@use '../base' as *;
+
+.auth {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  padding: space(8) space(4);
+
+  &__wrap {
+    display: grid;
+    gap: space(5);
+    width: min(100%, 25rem);
+  }
+
+  &__brand {
+    display: flex;
+    align-items: center;
+    gap: space(3);
+  }
+
+  &__card {
+    display: grid;
+    gap: space(2);
+    padding: space(8);
+    @include sheet;
+
+    @include down(sm) {
+      padding: space(6) space(5);
+    }
+  }
+
+  &__title {
+    font-family: $font-display;
+    font-size: 1.625rem;
+    font-weight: 600;
+    letter-spacing: -0.025em;
+    line-height: 1.2;
+  }
+
+  &__lead {
+    color: $muted;
+
+    code {
+      padding: 0.05rem 0.3rem;
+      background: $sunken-2;
+      border-radius: 3px;
+    }
+
+    strong {
+      font-weight: 600;
+    }
+  }
+
+  &__form {
+    display: grid;
+    gap: space(5);
+    margin-top: space(5);
+  }
+
+  &__foot {
+    display: flex;
+    align-items: center;
+    gap: space(2);
+    color: $faint;
+    font-size: $text-xs;
+  }
+}

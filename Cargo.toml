@@ -1,0 +1,101 @@
+[package]
+name = "aeon-server-explorer"
+version = "0.1.0"
+edition = "2021"
+
+[workspace]
+members = ["backend", "shared"]
+resolver = "2"
+
+[lib]
+name = "explorer_lib"
+crate-type = ["cdylib", "rlib"]
+
+[[bin]]
+name = "aeon-server-explorer"
+path = "src/main.rs"
+
+[dependencies]
+leptos = { version = "0.8.0" }
+leptos_router = { version = "0.8.0" }
+leptos_meta = { version = "0.8.0" }
+leptos_icons = "0.7"
+icondata = { version = "0.7", default-features = false, features = ["lucide"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+shared = { path = "shared" }
+
+axum = { version = "0.8.0", features = ["macros"], optional = true }
+leptos_axum = { version = "0.8.0", optional = true }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net"], optional = true }
+backend = { path = "backend", optional = true }
+dotenvy = { version = "0.15", optional = true }
+garde = { version = "0.23", optional = true }
+rand = { version = "0.8", optional = true }
+base64 = { version = "0.22", optional = true }
+futures = { version = "0.3", optional = true }
+
+console_error_panic_hook = { version = "0.1", optional = true }
+wasm-bindgen = { version = "0.2.106", optional = true }
+send_wrapper = { version = "0.6", optional = true }
+web-sys = { version = "0.3", optional = true, features = [
+    "EventSource",
+    "MessageEvent",
+    "Event",
+    "Element",
+    "HtmlElement",
+    "Window",
+] }
+
+[features]
+hydrate = [
+    "leptos/hydrate",
+    "dep:console_error_panic_hook",
+    "dep:wasm-bindgen",
+    "dep:send_wrapper",
+    "dep:web-sys",
+]
+ssr = [
+    "dep:axum",
+    "dep:tokio",
+    "dep:leptos_axum",
+    "dep:backend",
+    "shared/ssr",
+    "dep:dotenvy",
+    "leptos/ssr",
+    "leptos_meta/ssr",
+    "leptos_router/ssr",
+    "dep:garde",
+    "dep:rand",
+    "dep:base64",
+    "dep:futures",
+]
+
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+debug = false
+
+[profile.wasm-release]
+inherits = "release"
+opt-level = 'z'
+lto = true
+codegen-units = 1
+panic = "abort"
+
+[package.metadata.leptos]
+output-name = "explorer"
+site-root = "target/site"
+site-pkg-dir = "pkg"
+style-file = "style/main.scss"
+assets-dir = "public"
+site-addr = "127.0.0.1:5055"
+reload-port = 5056
+browserquery = "defaults"
+env = "DEV"
+bin-features = ["ssr"]
+bin-default-features = false
+lib-features = ["hydrate"]
+lib-default-features = false
+lib-profile-release = "wasm-release"

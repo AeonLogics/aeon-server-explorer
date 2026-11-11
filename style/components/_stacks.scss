@@ -1,0 +1,735 @@
+@use '../base' as *;
+
+.create {
+  display: grid;
+  grid-template-columns: minmax(0, 16rem) auto;
+  align-items: end;
+  gap: space(2) space(3);
+  margin-bottom: space(6);
+  padding: space(5);
+  @include sheet;
+
+  &--service {
+    grid-template-columns: minmax(0, 12rem) minmax(0, 1fr) auto;
+    margin-top: space(4);
+  }
+
+  &__hint {
+    grid-column: 1 / -1;
+    color: $faint;
+    font-size: $text-sm;
+  }
+
+  @include down(md) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  select.field__input {
+    padding-right: space(8);
+    cursor: pointer;
+  }
+}
+
+.badge.is-neutral {
+  background: $sunken-2;
+  color: $muted;
+}
+
+.editor {
+  display: grid;
+  gap: space(6);
+  margin-top: space(4);
+  padding: space(6);
+  @include sheet;
+
+  &__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  &__title {
+    font-family: $font-display;
+    font-size: 1.25rem;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+  }
+
+  &__group {
+    display: grid;
+    justify-items: start;
+    gap: space(2);
+    padding-top: space(5);
+    border-top: 1px solid $line;
+
+    > .editor__row {
+      justify-self: stretch;
+    }
+
+    &--two {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      justify-items: stretch;
+      gap: space(4);
+      padding-top: 0;
+      border-top: 0;
+
+      @include down(md) {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+
+    select.field__input {
+      padding-right: space(8);
+      cursor: pointer;
+    }
+  }
+
+  &__group-head {
+    display: grid;
+    gap: 0.15rem;
+    margin-bottom: space(1);
+  }
+
+  &__label {
+    @include mono-label;
+  }
+
+  &__hint {
+    color: $faint;
+    font-size: $text-sm;
+  }
+
+  &__row {
+    display: grid;
+    align-items: center;
+    gap: space(2);
+
+    &--port {
+      display: flex;
+      flex-wrap: wrap;
+
+      > .field__input {
+        width: 7rem;
+      }
+
+      > select.field__input {
+        width: 13rem;
+      }
+
+      > .icon-btn {
+        margin-left: auto;
+      }
+    }
+
+    &--volume {
+      grid-template-columns: minmax(0, 12rem) minmax(0, 1fr) 2rem;
+    }
+
+    &--env {
+      grid-template-columns: minmax(0, 14rem) minmax(0, 1fr) auto;
+    }
+
+    @include down(md) {
+      grid-template-columns: minmax(0, 1fr) auto;
+    }
+
+    .field__input:disabled {
+      background: $sunken;
+      border-color: $line;
+      color: $disabled;
+    }
+  }
+
+  &__host {
+    display: inline-flex;
+    align-items: center;
+    gap: space(1);
+
+    .field__input {
+      width: 6.5rem;
+    }
+  }
+
+  &__host-ip {
+    color: $faint;
+    font-family: $font-mono;
+    font-size: $text-xs;
+  }
+
+  &__hint code {
+    padding: 0.05rem 0.3rem;
+    background: $sunken-2;
+    border-radius: 3px;
+    font-size: $text-xs;
+  }
+
+  &__check {
+    display: inline-flex;
+    align-items: center;
+    gap: space(2);
+    color: $muted;
+    font-size: $text-sm;
+    white-space: nowrap;
+    cursor: pointer;
+
+    input {
+      accent-color: $accent;
+    }
+  }
+
+  &__var {
+    padding: 0 space(3);
+    color: $text;
+    font-size: $text-xs;
+    line-height: $control-height;
+    @include truncate;
+  }
+
+  &__secret {
+    padding: 0 space(3);
+    color: $disabled;
+    font-family: $font-mono;
+    font-size: $text-xs;
+    line-height: $control-height;
+    letter-spacing: 0.1em;
+    @include truncate;
+
+    &.is-shown {
+      background: $warn-wash;
+      border-radius: $radius-sm;
+      color: $text;
+      letter-spacing: 0;
+    }
+  }
+
+  &__row-actions {
+    display: flex;
+    align-items: center;
+    gap: space(1);
+  }
+
+  &__foot {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: space(2);
+    padding-top: space(5);
+    border-top: 1px solid $line;
+  }
+
+  &__problem {
+    flex: 1;
+    min-width: 12rem;
+    color: $faint;
+    font-size: $text-sm;
+  }
+}
+
+.table__empty {
+  padding: space(5);
+  color: $faint;
+  font-size: $text-sm;
+}
+
+.flash {
+  margin-top: space(4);
+  padding: space(3) space(4);
+  border-radius: $radius;
+  font-size: $text-sm;
+
+  &.is-ok {
+    background: $ok-wash;
+    color: $ok;
+  }
+
+  &.is-err {
+    background: $down-wash;
+    color: $down;
+  }
+}
+
+.compose {
+  margin-top: space(4);
+  @include sheet;
+
+  summary {
+    padding: space(3) space(5);
+    color: $muted;
+    font-size: $text-sm;
+    cursor: pointer;
+
+    &:hover {
+      color: $text;
+    }
+  }
+
+  pre {
+    margin: 0;
+    padding: space(4) space(5);
+    overflow-x: auto;
+    border-top: 1px solid $line;
+    background: $sunken;
+    border-radius: 0 0 $radius-lg $radius-lg;
+    font-family: $font-mono;
+    font-size: $text-xs;
+    line-height: 1.7;
+  }
+}
+
+// ── Stack workbench: service list + inspector + changes bar ────────────────
+.workbench {
+  display: grid;
+  grid-template-columns: 15rem minmax(0, 1fr);
+  min-height: 30rem;
+  @include sheet;
+
+  @include down(lg) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  &__list {
+    display: grid;
+    align-content: start;
+    gap: 2px;
+    padding: space(3);
+    border-right: 1px solid $line;
+    background: $sunken;
+    border-radius: $radius-lg 0 0 $radius-lg;
+
+    @include down(lg) {
+      border-right: 0;
+      border-bottom: 1px solid $line;
+      border-radius: $radius-lg $radius-lg 0 0;
+    }
+  }
+
+  &__label {
+    padding: space(1) space(2) space(2);
+    @include mono-label;
+  }
+
+  &__item {
+    display: grid;
+    gap: 0.1rem;
+    padding: space(2) space(3);
+    border-radius: $radius;
+    text-align: left;
+    transition: background-color 0.12s ease;
+    @include focus-ring;
+
+    &:hover {
+      background: $sunken-2;
+    }
+
+    &.is-active {
+      background: $sheet;
+      box-shadow: 0 0 0 1px $line;
+    }
+
+    &.is-active .workbench__name {
+      color: $accent;
+    }
+
+    &--add {
+      display: flex;
+      align-items: center;
+      gap: space(2);
+      margin-top: space(2);
+      color: $faint;
+      font-size: $text-sm;
+
+      &.is-active {
+        color: $accent;
+      }
+    }
+  }
+
+  &__name {
+    font-size: $text-base;
+    font-weight: 500;
+    @include truncate;
+  }
+
+  &__meta {
+    color: $faint;
+    font-family: $font-mono;
+    font-size: $text-2xs;
+    @include truncate;
+  }
+
+  &__main {
+    min-width: 0;
+    padding: space(5) space(6) space(6);
+  }
+}
+
+.inspector {
+  display: grid;
+  gap: space(4);
+
+  &__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: space(4);
+  }
+
+  &__titles {
+    display: grid;
+    gap: 0.15rem;
+    min-width: 0;
+  }
+
+  &__title {
+    font-family: $font-display;
+    font-size: 1.375rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+
+  &__image {
+    color: $faint;
+    font-family: $font-mono;
+    font-size: $text-xs;
+    @include truncate;
+  }
+
+  &__tabs {
+    margin-bottom: space(1);
+  }
+
+  &__problem {
+    padding: space(2) space(3);
+    background: $down-wash;
+    border-radius: $radius;
+    color: $down;
+    font-size: $text-sm;
+  }
+
+  &__body {
+    display: grid;
+    justify-items: start;
+    gap: space(3);
+
+    &.is-hidden {
+      display: none;
+    }
+
+    > .editor__row {
+      justify-self: stretch;
+    }
+
+    &--logs {
+      justify-items: stretch;
+    }
+  }
+
+  &__grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: space(4);
+    justify-self: stretch;
+
+    @include down(md) {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    select.field__input {
+      padding-right: space(8);
+      cursor: pointer;
+    }
+  }
+
+  &__hint {
+    max-width: 44rem;
+    color: $faint;
+    font-size: $text-sm;
+
+    code {
+      padding: 0.05rem 0.3rem;
+      background: $sunken-2;
+      border-radius: 3px;
+      font-size: $text-xs;
+    }
+  }
+
+  &__danger {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: space(3);
+    justify-self: stretch;
+    margin-top: space(6);
+    padding-top: space(4);
+    border-top: 1px solid $line;
+
+    strong {
+      font-size: $text-sm;
+      font-weight: 500;
+    }
+
+    p {
+      color: $faint;
+      font-size: $text-sm;
+    }
+  }
+
+  select.field__input {
+    cursor: pointer;
+  }
+}
+
+.add-service {
+  display: grid;
+  grid-template-columns: minmax(0, 12rem) minmax(0, 1fr) auto;
+  align-items: end;
+  gap: space(3);
+
+  .inspector__title {
+    grid-column: 1 / -1;
+    margin-bottom: space(2);
+  }
+
+  .create__hint {
+    grid-column: 1 / -1;
+    color: $faint;
+    font-size: $text-sm;
+  }
+
+  select.field__input {
+    padding-right: space(8);
+    cursor: pointer;
+  }
+
+  @include down(md) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+// Sticks to the bottom of the window while you scroll, so you always know what's live.
+.changes {
+  position: sticky;
+  bottom: space(4);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: space(3);
+  margin-top: space(4);
+  padding: space(3) space(3) space(3) space(5);
+  background: $sheet;
+  border: 1px solid $line;
+  border-radius: $radius-lg;
+
+  &.is-dirty {
+    border-color: rgba(138, 90, 0, 0.3);
+    background: #fffdf8;
+  }
+
+  &__dot {
+    flex: none;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: $disabled;
+
+    &.is-ok {
+      background: $ok-dot;
+    }
+
+    &.is-warn {
+      background: $warn-dot;
+    }
+  }
+
+  &__text {
+    flex: 1;
+    min-width: 0;
+    font-size: $text-sm;
+    @include truncate;
+  }
+}
+
+// ── Live state inside the workbench ─────────────────────────────────────────
+.workbench__name {
+  display: flex;
+  align-items: center;
+  gap: space(2);
+
+  .dot {
+    width: 0.4375rem;
+    height: 0.4375rem;
+  }
+}
+
+.dot.is-idle {
+  background: $sunken-2;
+  box-shadow: inset 0 0 0 1px $control-border;
+}
+
+.inspector__status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: space(3);
+  margin-top: calc(-1 * #{space(2)});
+}
+
+.inspector__status-text {
+  color: $faint;
+  font-size: $text-sm;
+}
+
+.inspector .actions {
+  justify-content: flex-end;
+}
+
+.inspector .stats {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  justify-self: stretch;
+
+  .stat-tile + .stat-tile {
+    border-top: 0;
+    border-left: 1px solid $line;
+  }
+
+  @include down(md) {
+    grid-template-columns: minmax(0, 1fr);
+
+    .stat-tile + .stat-tile {
+      border-left: 0;
+      border-top: 1px solid $line;
+    }
+  }
+}
+
+.inspector__facts {
+  justify-self: stretch;
+  padding-top: space(4);
+  border-top: 1px solid $line;
+}
+
+.inspector__nets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: space(2) space(4);
+}
+
+.inspector__net {
+  display: inline-flex;
+  align-items: center;
+  gap: space(2);
+}
+
+.editor__port {
+  display: grid;
+  gap: space(1);
+  justify-self: stretch;
+  padding-bottom: space(2);
+}
+
+.editor__explain {
+  max-width: 46rem;
+  color: $faint;
+  font-size: $text-xs;
+}
+
+.changes.is-nudged {
+  border-color: $warn-dot;
+  box-shadow: 0 0 0 3px $warn-wash;
+}
+
+.inspector__command {
+  justify-self: stretch;
+
+  .field__hint code {
+    padding: 0.05rem 0.3rem;
+    background: $sunken-2;
+    border-radius: 3px;
+    font-size: $text-xs;
+  }
+}
+
+.inspector__env-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: space(3);
+  justify-self: stretch;
+}
+
+.env-list {
+  display: grid;
+  justify-items: start;
+  gap: space(3);
+  justify-self: stretch;
+
+  > .editor__row {
+    justify-self: stretch;
+  }
+
+  &.is-hidden {
+    display: none;
+  }
+}
+
+textarea.env-file {
+  justify-self: stretch;
+  min-height: 16rem;
+  padding: space(3);
+  line-height: 1.7;
+  resize: vertical;
+}
+
+.last-deploy {
+  margin-top: space(3);
+
+  &.is-ok {
+    padding: 0 space(5);
+    color: $faint;
+    font-size: $text-xs;
+  }
+
+  &.is-failed {
+    overflow: hidden;
+    background: $sheet;
+    border: 1px solid rgba(179, 38, 30, 0.3);
+    border-radius: $radius-lg;
+  }
+
+  &__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: space(2) space(3);
+    padding: space(3) space(5);
+    background: $down-wash;
+
+    strong {
+      color: $down;
+      font-size: $text-sm;
+      font-weight: 600;
+    }
+  }
+
+  &__hint {
+    color: $muted;
+    font-size: $text-xs;
+  }
+
+  &__output {
+    margin: 0;
+    max-height: 22rem;
+    padding: space(4) space(5);
+    overflow: auto;
+    color: $text;
+    font-family: $font-mono;
+    font-size: $text-xs;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    @include scrollbar;
+  }
+}
