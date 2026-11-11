@@ -1,10 +1,11 @@
 # Aeon Server Explorer
 
-A calm, self-hosted control room for the Docker containers on one server.
+**A friendly web UI for managing Docker on your own server.**
 
-See every compose project and container at a glance, read live logs and CPU/RAM, start, stop and
-restart services, and build new stacks from a form instead of hand-editing YAML. It pulls images
-from Docker Hub, keeps env values in private files, and records everything in an audit log.
+Open it in your browser and see every compose project and container at a glance, read live logs
+and CPU/RAM, and start, stop or restart services. Build new stacks from a form instead of
+hand-editing YAML, pull images from Docker Hub, keep env values in private files, and get an
+audit log of everything that changed.
 
 It's made for one admin on one machine. It listens only on loopback and is reached through an
 SSH tunnel, never exposed to a network.
