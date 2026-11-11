@@ -8,7 +8,7 @@ pub enum SseEvent {
     Lost { closed: bool },
 }
 
-pub use imp::connect;
+pub use imp::{connect, SseHandle};
 
 #[cfg(feature = "hydrate")]
 mod imp {

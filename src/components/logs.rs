@@ -25,7 +25,7 @@ enum Feed {
 #[component]
 pub fn LogViewer(container: String, #[prop(optional)] reconnect: Option<Callback<()>>) -> impl IntoView {
     let lines = RwSignal::new(Vec::<Line>::new());
-    let held = StoredValue::new_local(Vec::<Line>::new());
+    let held = StoredValue::new(Vec::<Line>::new());
     let held_count = RwSignal::new(0usize);
     let paused = RwSignal::new(false);
     let follow = RwSignal::new(true);

@@ -6,7 +6,9 @@ use leptos_router::{
 };
 
 use crate::components::auth::AuthState;
-use crate::pages::{AuditPage, Gate, NotFound, OverviewPage, ProjectPage, ServicePage, StackPage, StacksPage};
+use crate::pages::{
+    AuditPage, Gate, ImagesPage, NotFound, OverviewPage, ProjectPage, ServicePage, StackPage, StacksPage,
+};
 
 pub fn shell(options: LeptosOptions) -> impl IntoView {
     view! {
@@ -53,6 +55,7 @@ pub fn App() -> impl IntoView {
                     <Route path=StaticSegment("") view=OverviewPage />
                     <Route path=StaticSegment("audit") view=AuditPage />
                     <Route path=StaticSegment("stacks") view=StacksPage />
+                    <Route path=StaticSegment("images") view=ImagesPage />
                     <Route path=(StaticSegment("stacks"), ParamSegment("stack")) view=StackPage />
                     <Route path=(StaticSegment("p"), ParamSegment("project")) view=ProjectPage />
                     <Route

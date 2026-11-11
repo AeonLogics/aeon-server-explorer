@@ -12,7 +12,11 @@ use super::map_err;
 
 const MAX_LINE: usize = 4_000;
 
-pub fn logs(docker: Docker, id: String, tail: u32) -> impl Stream<Item = Result<LogLine, DockerError>> {
+pub fn logs(
+    docker: Docker,
+    id: String,
+    tail: u32,
+) -> impl Stream<Item = Result<LogLine, DockerError>> {
     pump(move |tx| async move {
         let options = LogsOptionsBuilder::new()
             .follow(true)
@@ -21,7 +25,7 @@ pub fn logs(docker: Docker, id: String, tail: u32) -> impl Stream<Item = Result<
             .timestamps(true)
             .tail(&tail.to_string())
             .build();
-        let mut source = std::pin::pin!(docker.logs(&id, Some(options)));
+        let mut source = docker.logs(&id, Some(options));
         loop {
             let next = tokio::select! {
                 next = source.next() => next,
@@ -72,7 +76,9 @@ where
 {
     let (tx, rx) = mpsc::channel::<T>(512);
     tokio::spawn(run(tx));
-    futures::stream::unfold(rx, |mut rx| async move { rx.recv().await.map(|item| (item, rx)) })
+    futures::stream::unfold(rx, |mut rx| async move {
+        rx.recv().await.map(|item| (item, rx))
+    })
 }
 
 fn split(output: LogOutput) -> Vec<LogLine> {
@@ -151,7 +157,9 @@ fn sample(s: &ContainerStatsResponse) -> StatsSample {
     let cpu = s.cpu_stats.as_ref();
     let pre = s.precpu_stats.as_ref();
     let total = |c: Option<&bollard::models::ContainerCpuStats>| {
-        c.and_then(|c| c.cpu_usage.as_ref()).and_then(|u| u.total_usage).unwrap_or(0)
+        c.and_then(|c| c.cpu_usage.as_ref())
+            .and_then(|u| u.total_usage)
+            .unwrap_or(0)
     };
     let system = |c: Option<&bollard::models::ContainerCpuStats>| {
         c.and_then(|c| c.system_cpu_usage).unwrap_or(0)

@@ -5,7 +5,7 @@ use bollard::Docker;
 use bollard::models::ContainerSummary;
 use bollard::query_parameters::ListContainersOptionsBuilder;
 use shared::docker::{
-    Health, Overview, PortInfo, ProjectDetail, ProjectSummary, STANDALONE, STANDALONE_SLUG,
+    Health, Member, Overview, PortInfo, ProjectDetail, ProjectSummary, STANDALONE, STANDALONE_SLUG,
     ServiceCard, ServiceKind,
 };
 use shared::errors::docker::DockerError;
@@ -14,14 +14,19 @@ use super::{LABEL_NUMBER, LABEL_PROJECT, LABEL_SERVICE, LABEL_WORKING_DIR, map_e
 
 pub async fn overview(docker: &Docker) -> Result<Overview, DockerError> {
     let containers = list(docker, None).await?;
-    let engine_version = docker.version().await.ok().and_then(|v| v.version);
+    // Server facts are nice to have; the overview still works if Docker won't say.
+    let info = docker.info().await.ok();
+    let engine_version = info.as_ref().and_then(|i| i.server_version.clone());
+    let cpus = info.as_ref().and_then(|i| i.ncpu);
+    let memory = info.as_ref().and_then(|i| i.mem_total);
+    let images = info.as_ref().and_then(|i| i.images);
 
     let projects = group(&containers)
         .into_iter()
         .map(|(key, members)| summarize(key, &cards(&members)))
         .collect();
 
-    Ok(Overview { engine_version, projects })
+    Ok(Overview { engine_version, cpus, memory, images, projects })
 }
 
 pub async fn project(docker: &Docker, slug: &str) -> Result<ProjectDetail, DockerError> {
@@ -102,7 +107,20 @@ fn summarize(key: Option<String>, cards: &[ServiceCard]) -> ProjectSummary {
         None => (STANDALONE.to_string(), STANDALONE_SLUG.to_string(), true),
     };
 
-    ProjectSummary { name, slug, standalone, running, total, unhealthy, exposed_ports, health }
+    let members = cards
+        .iter()
+        .map(|c| Member {
+            name: c.name.clone(),
+            container: c.container_name.clone(),
+            health: c.health,
+            health_label: c.health_label.clone(),
+            running: c.state == "running",
+            status_text: c.status_text.clone(),
+            exposed: c.ports.iter().filter(|p| p.exposed).map(PortInfo::label).collect(),
+        })
+        .collect();
+
+    ProjectSummary { name, slug, standalone, running, total, unhealthy, exposed_ports, health, members }
 }
 
 fn cards(members: &[&ContainerSummary]) -> Vec<ServiceCard> {

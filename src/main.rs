@@ -47,12 +47,12 @@ async fn serve() {
     let addr = conf.leptos_options.site_addr;
     let leptos_options = conf.leptos_options;
 
-    // Controlling Docker is root on the host, so this must never listen beyond loopback.
     if !addr.ip().is_loopback() {
         fail(format!(
             "refusing to start: {addr} is not a loopback address (use 127.0.0.1 and an SSH tunnel)"
         ));
     }
+
     let port = addr.port();
     let allowed_hosts: Arc<[String]> =
         Arc::from([format!("localhost:{port}"), format!("127.0.0.1:{port}")]);
@@ -90,6 +90,7 @@ async fn serve() {
     let app = Router::new()
         .route("/api/logs/{container}", get(sse::logs))
         .route("/api/stats/{container}", get(sse::stats))
+        .route("/api/pull", get(sse::pull))
         .leptos_routes(&app_state, routes, {
             let leptos_options = app_state.leptos_options.clone();
             move || shell(leptos_options.clone())

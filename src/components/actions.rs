@@ -20,7 +20,10 @@ pub fn ActionBar(
     let container = move || {
         detail.with_untracked(|d| d.as_ref().map(|d| d.card.container_name.clone()).unwrap_or_default())
     };
-    let running = move || detail.with(|d| d.as_ref().is_some_and(|d| d.card.state == "running"));
+    // A container stuck restarting counts as active: Stop is what breaks the loop.
+    let running = move || {
+        detail.with(|d| d.as_ref().is_some_and(|d| matches!(d.card.state.as_str(), "running" | "restarting")))
+    };
     let blocker = move || detail.with(|d| d.as_ref().and_then(|d| d.redeploy_blocker.clone()));
     let is_self = move || detail.with(|d| d.as_ref().is_some_and(|d| d.is_self));
     let busy = move || act.pending().get();

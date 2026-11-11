@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::docker::Health;
+
 pub const MAX_SERVICES: usize = 30;
 
 // One env value to set: which service, which variable, the new value.
@@ -29,6 +31,61 @@ pub struct ServiceSpec {
     // Names only; values live in env/<service>.env on the server.
     #[serde(default)]
     pub env: Vec<String>,
+    // Overrides the image's default command; empty keeps the image's own.
+    #[serde(default)]
+    pub command: Vec<String>,
+}
+
+pub const MAX_ARGS: usize = 50;
+pub const MAX_ARG: usize = 500;
+
+// Splits a command line like a shell would for plain words and "quoted" or 'quoted' parts.
+pub fn split_command(line: &str) -> Result<Vec<String>, String> {
+    let mut args = Vec::new();
+    let mut current = String::new();
+    let mut quote: Option<char> = None;
+    let mut started = false;
+    for c in line.chars() {
+        match (quote, c) {
+            (Some(q), c) if c == q => quote = None,
+            (Some(_), c) => current.push(c),
+            (None, '"' | '\'') => {
+                quote = Some(c);
+                started = true;
+            }
+            (None, c) if c.is_whitespace() => {
+                if started {
+                    args.push(std::mem::take(&mut current));
+                    started = false;
+                }
+            }
+            (None, c) => {
+                current.push(c);
+                started = true;
+            }
+        }
+    }
+    if quote.is_some() {
+        return Err("A quote in the command isn't closed.".into());
+    }
+    if started {
+        args.push(current);
+    }
+    Ok(args)
+}
+
+// The reverse, for showing a saved command in the text box.
+pub fn join_command(args: &[String]) -> String {
+    args.iter()
+        .map(|a| {
+            if a.is_empty() || a.chars().any(|c| c.is_whitespace() || c == '"' || c == '\'') {
+                if a.contains('"') { format!("'{a}'") } else { format!("\"{a}\"") }
+            } else {
+                a.clone()
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -96,6 +153,58 @@ pub struct StackView {
     pub state: StackState,
     pub folder: String,
     pub compose: String,
+    pub status: Vec<ServiceStatus>,
+    pub last_apply: Option<ApplyRecord>,
+}
+
+// The outcome of the most recent deploy, kept so a failure's reason survives a refresh.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ApplyRecord {
+    pub at: String,
+    pub ok: bool,
+    pub output: String,
+}
+
+// Reads a .env-style text: KEY=value per line, with # comments, blank lines,
+// an optional `export ` prefix and optional quotes around the value.
+pub fn parse_env_file(text: &str) -> Result<Vec<(String, String)>, String> {
+    let mut out: Vec<(String, String)> = Vec::new();
+    for (index, raw) in text.lines().enumerate() {
+        let line_no = index + 1;
+        let line = raw.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        let line = line.strip_prefix("export ").unwrap_or(line);
+        let Some((name, value)) = line.split_once('=') else {
+            return Err(format!("Line {line_no}: expected NAME=value."));
+        };
+        let name = name.trim();
+        if !valid_env_name(name) {
+            return Err(format!("Line {line_no}: \"{name}\" isn't a valid variable name."));
+        }
+        if out.iter().any(|(n, _)| n == name) {
+            return Err(format!("Line {line_no}: {name} is listed twice."));
+        }
+        let value = value.trim();
+        let value = ['"', '\'']
+            .iter()
+            .find_map(|q| value.strip_prefix(*q).and_then(|v| v.strip_suffix(*q)))
+            .unwrap_or(value);
+        out.push((name.to_string(), value.to_string()));
+    }
+    Ok(out)
+}
+
+// What Docker says about one running (or crashed) container of a managed stack.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ServiceStatus {
+    pub service: String,
+    pub container: String,
+    pub health: Health,
+    pub health_label: String,
+    pub status_text: String,
+    pub running: bool,
 }
 
 // A compose project / service / volume name: lowercase letters, digits, - and _.
@@ -196,6 +305,13 @@ pub fn check_spec(spec: &StackSpec) -> Result<(), SpecProblem> {
             if !paths.insert(v.path.as_str()) {
                 return fail(format!("{}: {} is mounted twice.", s.name, v.path));
             }
+        }
+
+        if s.command.len() > MAX_ARGS {
+            return fail(format!("{}: the command can have up to {MAX_ARGS} parts.", s.name));
+        }
+        if s.command.iter().any(|a| a.len() > MAX_ARG || a.chars().any(char::is_control)) {
+            return fail(format!("{}: command parts must be one line, up to {MAX_ARG} characters.", s.name));
         }
 
         let mut env_names = std::collections::HashSet::new();

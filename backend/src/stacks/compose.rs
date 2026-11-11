@@ -41,10 +41,31 @@ pub fn render(spec: &StackSpec) -> String {
     out
 }
 
+// Command parts are free text, so each becomes a fully escaped double-quoted YAML string.
+// `$` is doubled because compose would otherwise treat it as a variable.
+fn yaml_string(value: &str) -> String {
+    let mut out = String::with_capacity(value.len() + 2);
+    out.push('"');
+    for c in value.chars() {
+        match c {
+            '"' => out.push_str("\\\""),
+            '\\' => out.push_str("\\\\"),
+            '$' => out.push_str("$$"),
+            c => out.push(c),
+        }
+    }
+    out.push('"');
+    out
+}
+
 fn render_service(out: &mut String, s: &ServiceSpec) {
     out.push_str(&format!("  {}:\n", s.name));
     out.push_str(&format!("    image: \"{}\"\n", s.image));
     out.push_str(&format!("    restart: {}\n", s.restart.compose()));
+    if !s.command.is_empty() {
+        let args: Vec<String> = s.command.iter().map(|a| yaml_string(a)).collect();
+        out.push_str(&format!("    command: [{}]\n", args.join(", ")));
+    }
     out.push_str("    labels:\n");
     out.push_str(&format!("      {LABEL_MANAGED}: \"true\"\n"));
 

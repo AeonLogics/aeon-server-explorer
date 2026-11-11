@@ -10,9 +10,9 @@ use bollard::query_parameters::ListImagesOptionsBuilder;
 use serde::{Deserialize, Serialize};
 use shared::errors::docker::DockerError;
 pub use shared::stack::EnvChange;
-use shared::stack::{StackSpec, StackState, StackSummary, StackView, check_spec, valid_name};
+use shared::stack::{ApplyRecord, ServiceStatus, StackSpec, StackState, StackSummary, StackView, check_spec, valid_name};
 
-use crate::docker::{Busy, LABEL_PROJECT, cli, list_containers, map_err};
+use crate::docker::{Busy, LABEL_PROJECT, LABEL_SERVICE, cli, container_card, list_containers, map_err};
 
 pub use compose::LABEL_MANAGED;
 
@@ -27,6 +27,8 @@ struct Meta {
     version: u32,
     spec: StackSpec,
     applied: Option<String>,
+    #[serde(default)]
+    last_apply: Option<ApplyRecord>,
 }
 
 #[derive(Debug, Clone)]
@@ -90,7 +92,29 @@ impl Stacks {
 
     pub async fn view(&self, docker: &Docker, name: &str) -> Result<StackView, DockerError> {
         let meta = self.read_meta(name)?;
-        let deployed = deployed_projects(docker).await?.contains(name);
+        let containers = list_containers(docker, None).await?;
+        let ours = |c: &&bollard::models::ContainerSummary| {
+            c.labels.as_ref().and_then(|l| l.get(LABEL_PROJECT)).map(String::as_str) == Some(name)
+        };
+        let deployed = containers.iter().any(|c| ours(&c));
+        let mut status: Vec<ServiceStatus> = containers
+            .iter()
+            .filter(ours)
+            .filter_map(|c| {
+                let service = c.labels.as_ref()?.get(LABEL_SERVICE)?.clone();
+                let card = container_card(c);
+                Some(ServiceStatus {
+                    service,
+                    container: card.container_name,
+                    health: card.health,
+                    health_label: card.health_label,
+                    status_text: card.status_text,
+                    running: card.state == "running",
+                })
+            })
+            .collect();
+        status.sort_by(|a, b| a.service.cmp(&b.service));
+
         let dir = self.dir(name)?;
         let compose = std::fs::read_to_string(dir.join(COMPOSE)).unwrap_or_default();
         Ok(StackView {
@@ -98,6 +122,8 @@ impl Stacks {
             spec: meta.spec,
             folder: dir.display().to_string(),
             compose,
+            status,
+            last_apply: meta.last_apply,
         })
     }
 
@@ -117,6 +143,7 @@ impl Stacks {
             version: 1,
             spec: StackSpec { name: name.to_string(), services: Vec::new() },
             applied: None,
+            last_apply: None,
         };
         self.write_meta(&meta)?;
         self.write_outputs(&meta.spec, &[])
@@ -163,16 +190,42 @@ impl Stacks {
         let file = dir.join(COMPOSE).display().to_string();
         let base = ["compose", "-p", name, "--project-directory", &dir_text, "-f", &file];
 
-        let mut check = base.to_vec();
-        check.extend(["config", "-q"]);
-        cli(&check, CHECK_TIMEOUT).await?;
+        let result = async {
+            let mut check = base.to_vec();
+            check.extend(["config", "-q"]);
+            cli(&check, CHECK_TIMEOUT).await?;
 
-        let mut up = base.to_vec();
-        up.extend(["up", "-d", "--remove-orphans", "--pull", "never"]);
-        cli(&up, UP_TIMEOUT).await?;
+            let mut up = base.to_vec();
+            up.extend(["up", "-d", "--remove-orphans", "--pull", "never"]);
+            cli(&up, UP_TIMEOUT).await
+        }
+        .await;
 
-        meta.applied = Some(files::fingerprint(&dir, &meta.spec));
-        self.write_meta(&meta)
+        // Kept in explorer.json, so the reason for a failure is still there after a refresh.
+        let at = chrono::Local::now().format("%Y-%m-%d %H:%M").to_string();
+        meta.last_apply = Some(match &result {
+            Ok(()) => ApplyRecord { at, ok: true, output: String::new() },
+            Err(e) => ApplyRecord { at, ok: false, output: e.to_string() },
+        });
+        if result.is_ok() {
+            meta.applied = Some(files::fingerprint(&dir, &meta.spec));
+        }
+        self.write_meta(&meta)?;
+        result
+    }
+
+    // The whole env file of one service, limited to the names the stack knows.
+    pub fn reveal_all(&self, stack: &str, service: &str) -> Result<String, DockerError> {
+        let meta = self.read_meta(stack)?;
+        let spec = meta.spec.services.iter().find(|s| s.name == service).ok_or(DockerError::NotFound)?;
+        let dir = self.dir(stack)?;
+        let mut text = String::new();
+        for name in &spec.env {
+            let value = files::read_value(&dir, service, name).unwrap_or_default();
+            text.push_str(&format!("{name}={value}
+"));
+        }
+        Ok(text)
     }
 
     pub fn reveal(&self, stack: &str, service: &str, name: &str) -> Result<String, DockerError> {

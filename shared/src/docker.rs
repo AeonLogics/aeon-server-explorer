@@ -25,7 +25,22 @@ impl Health {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Overview {
     pub engine_version: Option<String>,
+    pub cpus: Option<i64>,
+    pub memory: Option<i64>,
+    pub images: Option<i64>,
     pub projects: Vec<ProjectSummary>,
+}
+
+// One container, just enough for the overview's strip, cards and "needs you" list.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Member {
+    pub name: String,
+    pub container: String,
+    pub health: Health,
+    pub health_label: String,
+    pub running: bool,
+    pub status_text: String,
+    pub exposed: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -38,6 +53,7 @@ pub struct ProjectSummary {
     pub unhealthy: u32,
     pub exposed_ports: u32,
     pub health: Health,
+    pub members: Vec<Member>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -224,6 +240,9 @@ impl AuditEntry {
             "stack.save" => "Saved stack",
             "stack.apply" => "Deployed stack",
             "env.reveal" => "Revealed an env value",
+            "env.reveal_all" => "Revealed all env values",
+            "image.pull" => "Pulled image",
+            "image.remove" => "Removed image",
             _ => "Other event",
         }
     }

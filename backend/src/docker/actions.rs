@@ -201,10 +201,13 @@ pub(crate) async fn cli(args: &[&str], limit: Duration) -> Result<(), DockerErro
 
     let stderr = String::from_utf8_lossy(&output.stderr);
     let tail: Vec<&str> = stderr.lines().filter(|l| !l.trim().is_empty()).collect();
-    let tail = tail[tail.len().saturating_sub(3)..].join(" · ");
-    let mut message = format!("docker compose failed: {tail}");
-    if message.len() > 400 {
-        let mut cut = 400;
+    // Docker puts the real reason in the last lines; keep enough of them to read it whole.
+    let tail = tail[tail.len().saturating_sub(15)..].join("
+");
+    let mut message = format!("docker compose failed:
+{tail}");
+    if message.len() > 4000 {
+        let mut cut = 4000;
         while !message.is_char_boundary(cut) {
             cut -= 1;
         }

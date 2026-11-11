@@ -1,6 +1,7 @@
 pub mod audit;
 pub mod auth;
 pub mod docker;
+pub mod images;
 pub mod stacks;
 
 #[cfg(feature = "ssr")]

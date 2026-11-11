@@ -1,5 +1,6 @@
 use leptos::prelude::*;
-use leptos_router::hooks::use_location;
+use leptos_router::hooks::{use_location, use_navigate};
+use leptos_router::NavigateOptions;
 use shared::docker::{ProjectDetail, ServiceCard as Card, ServiceKind};
 
 use super::common::{CardSkeletons, DockerProblem};
@@ -19,6 +20,17 @@ pub fn ProjectPage() -> impl IntoView {
     let project = Resource::new(move || (slug.get(), tick.get()), |(slug, _)| get_project(slug));
     let managed = Resource::new(move || slug.get(), is_managed);
     watch_session(move || project.get().and_then(Result::err));
+
+    // A stack this app manages has one home: its workbench, where it's edited and run.
+    let navigate = use_navigate();
+    Effect::new(move |_| {
+        if matches!(managed.get(), Some(Ok(true))) {
+            navigate(
+                &format!("/stacks/{}", slug.get_untracked()),
+                NavigateOptions { replace: true, ..Default::default() },
+            );
+        }
+    });
 
     view! {
         <div class="page">

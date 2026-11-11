@@ -95,7 +95,12 @@ pub async fn service(docker: &Docker, id: &str) -> Result<ServiceDetail, DockerE
         card,
         project: labels.get(LABEL_PROJECT).cloned(),
         service: target.service.clone(),
-        redeploy_blocker: target.redeploy_blocker(),
+        // Managed stacks are deployed with Apply (it never pulls), not with Redeploy.
+        redeploy_blocker: if labels.contains_key(crate::stacks::LABEL_MANAGED) {
+            Some("This stack is managed here: change it in the stack page and press Apply.".into())
+        } else {
+            target.redeploy_blocker()
+        },
         is_self: target.is_self,
         image_id: inspect.image.clone(),
         command: summary.command.clone().filter(|c| !c.is_empty()),

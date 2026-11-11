@@ -26,7 +26,7 @@ impl Filter {
 }
 
 fn is_change(e: &AuditEntry) -> bool {
-    ["container.", "stack.", "env."].iter().any(|p| e.action.starts_with(p))
+    ["container.", "stack.", "env.", "image."].iter().any(|p| e.action.starts_with(p))
 }
 
 #[component]

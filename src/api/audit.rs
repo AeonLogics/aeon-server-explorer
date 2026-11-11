@@ -22,19 +22,35 @@ pub(crate) async fn record(
 ) {
     let Ok(state) = AppState::get() else { return };
     let client = client_meta().await;
+    record_direct(&state.db, action, actor, target, detail, ok, client.ip, client.user_agent).await;
+}
+
+// For plain Axum routes (like the pull stream), which have no Leptos context.
+#[cfg(feature = "ssr")]
+#[allow(clippy::too_many_arguments)]
+pub(crate) async fn record_direct(
+    db: &backend::db::Db,
+    action: &str,
+    actor: Option<String>,
+    target: Option<String>,
+    detail: Option<String>,
+    ok: bool,
+    ip: Option<String>,
+    user_agent: Option<String>,
+) {
     let detail = detail.map(|d| d.chars().take(500).collect::<String>());
     let target = target.map(|t| t.chars().take(300).collect::<String>());
+    let user_agent = user_agent.map(|u| u.chars().take(512).collect::<String>());
 
-    let result = state
-        .db
+    let result = db
         .query(AuditQuery::Record)
         .bind(("action", action.to_string()))
         .bind(("actor", actor))
         .bind(("target", target))
         .bind(("detail", detail))
         .bind(("ok", ok))
-        .bind(("user_ip", client.ip))
-        .bind(("user_agent", client.user_agent))
+        .bind(("user_ip", ip))
+        .bind(("user_agent", user_agent))
         .await
         .and_then(|res| res.check());
 

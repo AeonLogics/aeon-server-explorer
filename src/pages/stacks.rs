@@ -1,9 +1,10 @@
 use leptos::prelude::*;
 use leptos_router::hooks::{use_location, use_navigate};
 use leptos_router::NavigateOptions;
-use shared::stack::{check_spec, valid_name, ServiceSpec, StackState, StackSummary, StackView};
+use shared::stack::{check_spec, valid_name, ServiceSpec, StackState, StackSummary};
 
 use super::common::DockerProblem;
+use super::service_editor::ServiceInspector;
 use crate::api::stacks::{get_images, get_stack, get_stacks, ApplyStack, CreateStack, SaveStack};
 use crate::components::icon::Ico;
 use crate::components::poll::{watch_session, Tick};
@@ -22,7 +23,10 @@ pub fn StateBadge(state: StackState) -> impl IntoView {
 pub fn StacksPage() -> impl IntoView {
     let tick = Tick::signal();
     let create = ServerAction::<CreateStack>::new();
-    let stacks = Resource::new(move || (tick.get(), create.version().get()), |_| get_stacks());
+    let stacks = Resource::new(
+        move || (tick.get(), create.version().get()),
+        |_| get_stacks(),
+    );
     watch_session(move || stacks.get().and_then(Result::err));
 
     let name = RwSignal::new(String::new());
@@ -40,10 +44,18 @@ pub fn StacksPage() -> impl IntoView {
     let on_submit = move |ev: leptos::ev::SubmitEvent| {
         ev.prevent_default();
         if typed_ok() {
-            create.dispatch(CreateStack { name: name.get_untracked().trim().to_string() });
+            create.dispatch(CreateStack {
+                name: name.get_untracked().trim().to_string(),
+            });
         }
     };
-    let error = move || create.value().get().and_then(Result::err).map(|e| e.to_string());
+    let error = move || {
+        create
+            .value()
+            .get()
+            .and_then(Result::err)
+            .map(|e| e.to_string())
+    };
 
     view! {
         <div class="page">
@@ -127,6 +139,9 @@ fn StackTable(list: Vec<StackSummary>) -> impl IntoView {
     }
 }
 
+// Marks "Add service" in the selection, since no service can have this name.
+const NEW: &str = "+new";
+
 #[component]
 pub fn StackPage() -> impl IntoView {
     let location = use_location();
@@ -145,165 +160,356 @@ pub fn StackPage() -> impl IntoView {
     let save = ServerAction::<SaveStack>::new();
     let apply = ServerAction::<ApplyStack>::new();
     let stack = Resource::new(
-        move || (name.get(), tick.get(), save.version().get(), apply.version().get()),
+        move || {
+            (
+                name.get(),
+                tick.get(),
+                save.version().get(),
+                apply.version().get(),
+            )
+        },
         |(n, ..)| get_stack(n),
     );
     let images = Resource::new(|| (), |_| get_images());
     watch_session(move || stack.get().and_then(Result::err));
-    // The form lives outside the 5-second refresh, so typing isn't wiped; it reads the
-    // latest spec only when you submit. Equal refreshes don't notify these memos.
+
+    // The workbench lives outside the 5-second refresh: these memos only notify when the
+    // data really changed, so nothing you're typing gets rebuilt.
     let spec = Memo::new(move |_| stack.get().and_then(Result::ok).map(|v| v.spec));
     let compose = Memo::new(move |_| stack.get().and_then(Result::ok).map(|v| v.compose));
+    let folder = Memo::new(move |_| {
+        stack
+            .get()
+            .and_then(Result::ok)
+            .map(|v| v.folder)
+            .unwrap_or_default()
+    });
+    let state = Memo::new(move |_| stack.get().and_then(Result::ok).map(|v| v.state));
+    let deployed =
+        Signal::derive(move || state.get().is_some_and(|s| s != StackState::NotDeployed));
+    let status = Memo::new(move |_| {
+        stack
+            .get()
+            .and_then(Result::ok)
+            .map(|v| v.status)
+            .unwrap_or_default()
+    });
 
-    let message = move || {
-        let saved = save.value().get().and_then(Result::err).map(|e| (false, e.to_string()));
-        let applied = apply.value().get().map(|r| match r {
-            Ok(()) => (true, "Deployed. The containers are starting.".to_string()),
-            Err(e) => (false, e.to_string()),
+    let selected = RwSignal::new(None::<String>);
+    let selected_status = Signal::derive(move || {
+        let current = selected.get();
+        status.with(|all| {
+            all.iter()
+                .find(|s| Some(&s.service) == current.as_ref())
+                .cloned()
+        })
+    });
+    let dirty = RwSignal::new(false);
+    let save_now = RwSignal::new(0u32);
+    let epoch = RwSignal::new(0u32);
+
+    let selected_spec = Memo::new(move |_| {
+        let current = selected.get();
+        spec.with(|s| {
+            s.as_ref().and_then(|s| {
+                s.services
+                    .iter()
+                    .find(|x| Some(&x.name) == current.as_ref())
+                    .cloned()
+            })
+        })
+    });
+
+    Effect::new(move |_| {
+        let names: Option<Vec<String>> = spec.with(|s| {
+            s.as_ref()
+                .map(|s| s.services.iter().map(|x| x.name.clone()).collect())
         });
-        applied.or(saved)
+        let Some(names) = names else { return };
+        let current = selected.get_untracked();
+        let still_there = current
+            .as_ref()
+            .is_some_and(|c| c == NEW || names.contains(c));
+        if !still_there {
+            dirty.set(false);
+            selected.set(Some(
+                names.first().cloned().unwrap_or_else(|| NEW.to_string()),
+            ));
+        }
+    });
+
+    // With unsaved edits, switching is refused and the changes bar asks for a decision.
+    let nudge = RwSignal::new(false);
+    let choose = move |next: String| {
+        if selected.get_untracked().as_deref() == Some(next.as_str()) {
+            return;
+        }
+        if dirty.get_untracked() {
+            nudge.set(true);
+            set_timeout(move || nudge.set(false), std::time::Duration::from_millis(1800));
+            return;
+        }
+        selected.set(Some(next));
     };
 
+    let on_added = Callback::new(move |service: String| {
+        dirty.set(false);
+        selected.set(Some(service));
+    });
+    let on_saved = Callback::new(move |_: ()| epoch.update(|e| *e += 1));
+
+    let last_apply = Memo::new(move |_| stack.get().and_then(Result::ok).and_then(|v| v.last_apply));
+
     view! {
-        <div class="page">
+        <div class="page page--stack">
             <nav class="crumbs" aria-label="Breadcrumb">
                 <a href="/stacks">"Stacks"</a>
                 <span aria-hidden="true">"/"</span>
                 <span>{move || name.get()}</span>
             </nav>
-            <Transition fallback=|| view! { <div class="skeleton skeleton--block"></div> }>
+
+            <Show
+                when=move || spec.with(Option::is_some)
+                fallback=move || {
+                    view! {
+                        <Transition fallback=|| view! { <div class="skeleton skeleton--block"></div> }>
+                            {move || stack.get().and_then(Result::err).map(|error| view! { <DockerProblem error /> })}
+                        </Transition>
+                    }
+                }
+            >
+                <header class="page__head">
+                    <div class="page__titles">
+                        <div class="service-head__row">
+                            <h1 class="page__title">{move || name.get()}</h1>
+                            {move || state.get().map(|s| view! { <StateBadge state=s /> })}
+                        </div>
+                        <p class="page__meta"><span class="page__meta-mono">{move || folder.get()}</span></p>
+                    </div>
+                    <Show when=move || deployed.get()>
+                        <a class="act" href=move || format!("/p/{}", name.get())>"Open project"</a>
+                    </Show>
+                </header>
+
+                <div class="workbench">
+                    <nav class="workbench__list" aria-label="Services">
+                        <span class="workbench__label">"SERVICES"</span>
+                        {move || {
+                            spec.with(|s| s.as_ref().map(|s| s.services.clone()))
+                                .unwrap_or_default()
+                                .into_iter()
+                                .map(|svc| {
+                                    let pick = svc.name.clone();
+                                    let is_current = svc.name.clone();
+                                    let for_dot = svc.name.clone();
+                                    let dot = move || {
+                                        status.with(|all| {
+                                            all.iter()
+                                                .find(|s| s.service == for_dot)
+                                                .map(|s| s.health.class())
+                                                .unwrap_or("is-idle")
+                                        })
+                                    };
+                                    view! {
+                                        <button
+                                            type="button"
+                                            class="workbench__item"
+                                            class:is-active=move || selected.get().as_deref() == Some(is_current.as_str())
+                                            on:click=move |_| choose(pick.clone())
+                                        >
+                                            <span class="workbench__name">
+                                                <span class=move || format!("dot {}", dot())></span>
+                                                {svc.name.clone()}
+                                            </span>
+                                            <span class="workbench__meta">{svc.image.clone()}</span>
+                                        </button>
+                                    }
+                                })
+                                .collect_view()
+                        }}
+                        <button
+                            type="button"
+                            class="workbench__item workbench__item--add"
+                            class:is-active=move || selected.get().as_deref() == Some(NEW)
+                            on:click=move |_| choose(NEW.to_string())
+                        >
+                            <Ico icon=icondata::LuPlus />
+                            "Add service"
+                        </button>
+                    </nav>
+
+                    <section class="workbench__main">
+                        {move || {
+                            epoch.track();
+                            selected_spec.track();
+                            let current = selected.get()?;
+                            if current == NEW {
+                                return Some(view! { <AddService spec save images on_added /> }.into_any());
+                            }
+                            let stack = spec.get_untracked()?;
+                            Some(
+                                view! {
+                                    <ServiceInspector
+                                        stack
+                                        latest=spec
+                                        service=current
+                                        deployed
+                                        status=selected_status
+                                        save
+                                        images
+                                        dirty
+                                        save_now
+                                        on_saved
+                                    />
+                                }
+                                .into_any(),
+                            )
+                        }}
+                    </section>
+                </div>
+
+                <div class="changes" class:is-dirty=move || dirty.get() class:is-nudged=move || nudge.get()>
+                    {move || {
+                        let has_services = spec.with(|s| s.as_ref().is_some_and(|s| !s.services.is_empty()));
+                        let busy = save.pending().get() || apply.pending().get();
+                        if dirty.get() {
+                            return view! {
+                                <span class="changes__dot is-warn"></span>
+                                <span class="changes__text">
+                                    {move || {
+                                        let service = selected.get().unwrap_or_default();
+                                        if nudge.get() {
+                                            format!("Save or discard your changes to {service} first")
+                                        } else {
+                                            format!("Unsaved changes to {service}")
+                                        }
+                                    }}
+                                </span>
+                                <button
+                                    type="button"
+                                    class="btn btn--ghost"
+                                    on:click=move |_| {
+                                        dirty.set(false);
+                                        epoch.update(|e| *e += 1);
+                                    }
+                                >
+                                    "Discard"
+                                </button>
+                                <button
+                                    type="button"
+                                    class="btn btn--primary"
+                                    disabled=busy
+                                    on:click=move |_| save_now.update(|n| *n += 1)
+                                >
+                                    {if save.pending().get() { "Saving…" } else { "Save" }}
+                                </button>
+                            }
+                            .into_any();
+                        }
+                        // "Applied" is about the files; whether the containers actually run is separate.
+                        let down = status.with(|all| all.iter().filter(|s| !s.running).count());
+                        let (dot, text, action): (&str, String, Option<&'static str>) = match state.get() {
+                            Some(StackState::Pending) => ("is-warn", "Saved, but not live yet".into(), Some("Apply changes")),
+                            Some(StackState::NotDeployed) if has_services => ("is-neutral", "Not deployed yet".into(), Some("Deploy")),
+                            Some(StackState::Deployed) if down == 1 => ("is-warn", "Applied, but 1 service isn't running. Check its logs.".into(), None),
+                            Some(StackState::Deployed) if down > 1 => ("is-warn", format!("Applied, but {down} services aren't running. Check their logs."), None),
+                            Some(StackState::Deployed) => ("is-ok", "Everything is live and running".into(), None),
+                            _ => ("is-neutral", "Add a service to get started".into(), None),
+                        };
+                        view! {
+                            <span class=format!("changes__dot {dot}")></span>
+                            <span class="changes__text">{text}</span>
+                            {action.map(|label| {
+                                view! {
+                                    <button
+                                        type="button"
+                                        class="btn btn--primary"
+                                        disabled=busy
+                                        on:click=move |_| {
+                                            apply.dispatch(ApplyStack { name: name.get_untracked() });
+                                        }
+                                    >
+                                        {if apply.pending().get() { "Deploying…" } else { label }}
+                                    </button>
+                                }
+                            })}
+                        }
+                        .into_any()
+                    }}
+                </div>
+
+                // Survives refreshes: the reason for a failed deploy stays until the next one works.
                 {move || {
-                    stack
-                        .get()
-                        .map(|result| match result {
-                            Err(error) => view! { <DockerProblem error /> }.into_any(),
-                            Ok(data) => view! { <StackBody data save apply /> }.into_any(),
-                        })
+                    if apply.pending().get() {
+                        return None;
+                    }
+                    last_apply.get().map(|record| {
+                        if record.ok {
+                            view! {
+                                <p class="last-deploy is-ok">{format!("Last deployed {}", record.at)}</p>
+                            }
+                            .into_any()
+                        } else {
+                            view! {
+                                <section class="last-deploy is-failed" role="alert">
+                                    <header class="last-deploy__head">
+                                        <span class="dot is-down"></span>
+                                        <strong>{format!("Last deploy failed · {}", record.at)}</strong>
+                                        <span class="last-deploy__hint">"Fix it, Save, then Apply again. Your saved changes are kept."</span>
+                                    </header>
+                                    <pre class="last-deploy__output">{record.output}</pre>
+                                </section>
+                            }
+                            .into_any()
+                        }
+                    })
                 }}
-            </Transition>
-            <Show when=move || spec.with(Option::is_some)>
-                <AddService spec save images />
+
                 <details class="compose">
                     <summary>"Generated compose.yml"</summary>
                     <pre>{move || compose.get().unwrap_or_default()}</pre>
                 </details>
             </Show>
-            {move || {
-                message()
-                    .map(|(ok, text)| {
-                        view! { <p class="flash" class:is-ok=ok class:is-err=!ok role="status">{text}</p> }
-                    })
-            }}
         </div>
     }
 }
 
-#[component]
-fn StackBody(
-    data: StackView,
-    save: ServerAction<SaveStack>,
-    apply: ServerAction<ApplyStack>,
-) -> impl IntoView {
-    let spec = StoredValue::new(data.spec.clone());
-    let deployed = data.state != StackState::NotDeployed;
-    let stack_name = data.spec.name.clone();
-    let can_apply = !data.spec.services.is_empty() && data.state != StackState::Deployed;
-    let apply_label = match data.state {
-        StackState::NotDeployed => "Deploy",
-        StackState::Pending => "Apply changes",
-        StackState::Deployed => "Up to date",
-    };
-
-    let remove = move |service: String| {
-        let mut next = spec.get_value();
-        next.services.retain(|s| s.name != service);
-        save.dispatch(SaveStack { spec: next, changes: Vec::new() });
-    };
-
-    view! {
-        <header class="page__head">
-            <div class="page__titles">
-                <div class="service-head__row">
-                    <h1 class="page__title">{stack_name.clone()}</h1>
-                    <StateBadge state=data.state.clone() />
-                </div>
-                <p class="page__meta"><span class="page__meta-mono">{data.folder.clone()}</span></p>
-            </div>
-            <div class="actions">
-                {deployed.then(|| view! {
-                    <a class="act" href=format!("/p/{stack_name}")>"Open project"</a>
-                })}
-                <button
-                    type="button"
-                    class="btn btn--primary"
-                    disabled=move || !can_apply || apply.pending().get() || save.pending().get()
-                    on:click={
-                        let name = data.spec.name.clone();
-                        move |_| {
-                            apply.dispatch(ApplyStack { name: name.clone() });
-                        }
-                    }
-                >
-                    {move || if apply.pending().get() { "Deploying…" } else { apply_label }}
-                </button>
-            </div>
-        </header>
-
-        <section class="table" aria-label="Services">
-            <div class="table__row table__row--head table__row--services" aria-hidden="true">
-                <span>"Service"</span>
-                <span>"Image"</span>
-                <span>"Restart"</span>
-                <span></span>
-            </div>
-            {if data.spec.services.is_empty() {
-                view! { <p class="table__empty">"No services yet. Add the first one below."</p> }.into_any()
-            } else {
-                data.spec
-                    .services
-                    .iter()
-                    .cloned()
-                    .map(|s| {
-                        let service = s.name.clone();
-                        view! {
-                            <div class="table__row table__row--services">
-                                <span class="table__name"><span>{s.name.clone()}</span></span>
-                                <span class="table__mono">{s.image.clone()}</span>
-                                <span class="table__note is-calm">{s.restart.label()}</span>
-                                <button
-                                    type="button"
-                                    class="icon-btn"
-                                    title="Remove from the stack (applies on the next deploy)"
-                                    aria-label=format!("Remove {}", s.name)
-                                    disabled=move || save.pending().get()
-                                    on:click=move |_| remove(service.clone())
-                                >
-                                    <Ico icon=icondata::LuX />
-                                </button>
-                            </div>
-                        }
-                    })
-                    .collect_view()
-                    .into_any()
-            }}
-        </section>
-
-    }
-}
 
 #[component]
 fn AddService(
     spec: Memo<Option<shared::stack::StackSpec>>,
     save: ServerAction<SaveStack>,
     images: Resource<Result<Vec<String>, shared::errors::docker::DockerError>>,
+    on_added: Callback<String>,
 ) -> impl IntoView {
     let name = RwSignal::new(String::new());
     let image = RwSignal::new(String::new());
     let problem = RwSignal::new(None::<String>);
+    let adding = RwSignal::new(None::<String>);
+
+    Effect::new(move |_| {
+        let result = save.value().get();
+        let Some(added) = adding.get_untracked() else {
+            return;
+        };
+        match result {
+            Some(Ok(())) => {
+                adding.set(None);
+                on_added.run(added);
+            }
+            Some(Err(e)) => {
+                adding.set(None);
+                problem.set(Some(e.to_string()));
+            }
+            None => {}
+        }
+    });
 
     let on_submit = move |ev: leptos::ev::SubmitEvent| {
         ev.prevent_default();
-        let Some(mut next) = spec.get_untracked() else { return };
+        let Some(mut next) = spec.get_untracked() else {
+            return;
+        };
         next.services.push(ServiceSpec {
             name: name.get_untracked().trim().to_string(),
             image: image.get_untracked(),
@@ -311,19 +517,25 @@ fn AddService(
             ports: Vec::new(),
             volumes: Vec::new(),
             env: Vec::new(),
+            command: Vec::new(),
         });
         match check_spec(&next) {
             Err(p) => problem.set(Some(p.0)),
             Ok(()) => {
                 problem.set(None);
+                adding.set(Some(name.get_untracked().trim().to_string()));
                 name.set(String::new());
-                save.dispatch(SaveStack { spec: next, changes: Vec::new() });
+                save.dispatch(SaveStack {
+                    spec: next,
+                    changes: Vec::new(),
+                });
             }
         }
     };
 
     view! {
-        <form class="create create--service" on:submit=on_submit>
+        <form class="add-service" on:submit=on_submit>
+            <h2 class="inspector__title">"Add a service"</h2>
             <label class="field create__field">
                 <span class="field__label">"SERVICE NAME"</span>
                 <input
@@ -365,7 +577,7 @@ fn AddService(
                 "Add service"
             </button>
             <p class="create__hint">
-                {move || problem.get().unwrap_or_else(|| "Only images already on this server are listed. Ports, storage and env come next.".into())}
+                {move || problem.get().unwrap_or_else(|| "Only images already on this server are listed. Ports, storage and env come right after.".into())}
             </p>
         </form>
     }

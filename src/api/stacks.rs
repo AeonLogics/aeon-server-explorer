@@ -82,6 +82,16 @@ pub async fn reveal_env(stack: String, service: String, name: String) -> Result<
     result
 }
 
+#[server]
+pub async fn reveal_env_file(stack: String, service: String) -> Result<String, DockerError> {
+    let admin = require_admin()?;
+    let state = AppState::get()?;
+    let result = state.stacks.reveal_all(&stack, &service);
+    let shown: Result<(), DockerError> = result.as_ref().map(|_| ()).map_err(Clone::clone);
+    audit("env.reveal_all", admin.email, &format!("{stack}/{service}"), &shown).await;
+    result
+}
+
 #[cfg(feature = "ssr")]
 async fn audit(action: &str, actor: String, target: &str, result: &Result<(), DockerError>) {
     super::audit::record(
