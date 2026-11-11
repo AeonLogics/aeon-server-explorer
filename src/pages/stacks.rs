@@ -150,6 +150,10 @@ pub fn StackPage() -> impl IntoView {
     );
     let images = Resource::new(|| (), |_| get_images());
     watch_session(move || stack.get().and_then(Result::err));
+    // The form lives outside the 5-second refresh, so typing isn't wiped; it reads the
+    // latest spec only when you submit. Equal refreshes don't notify these memos.
+    let spec = Memo::new(move |_| stack.get().and_then(Result::ok).map(|v| v.spec));
+    let compose = Memo::new(move |_| stack.get().and_then(Result::ok).map(|v| v.compose));
 
     let message = move || {
         let saved = save.value().get().and_then(Result::err).map(|e| (false, e.to_string()));
@@ -173,10 +177,17 @@ pub fn StackPage() -> impl IntoView {
                         .get()
                         .map(|result| match result {
                             Err(error) => view! { <DockerProblem error /> }.into_any(),
-                            Ok(data) => view! { <StackBody data save apply images /> }.into_any(),
+                            Ok(data) => view! { <StackBody data save apply /> }.into_any(),
                         })
                 }}
             </Transition>
+            <Show when=move || spec.with(Option::is_some)>
+                <AddService spec save images />
+                <details class="compose">
+                    <summary>"Generated compose.yml"</summary>
+                    <pre>{move || compose.get().unwrap_or_default()}</pre>
+                </details>
+            </Show>
             {move || {
                 message()
                     .map(|(ok, text)| {
@@ -192,7 +203,6 @@ fn StackBody(
     data: StackView,
     save: ServerAction<SaveStack>,
     apply: ServerAction<ApplyStack>,
-    images: Resource<Result<Vec<String>, shared::errors::docker::DockerError>>,
 ) -> impl IntoView {
     let spec = StoredValue::new(data.spec.clone());
     let deployed = data.state != StackState::NotDeployed;
@@ -278,18 +288,12 @@ fn StackBody(
             }}
         </section>
 
-        <AddService spec save images />
-
-        <details class="compose">
-            <summary>"Generated compose.yml"</summary>
-            <pre>{data.compose.clone()}</pre>
-        </details>
     }
 }
 
 #[component]
 fn AddService(
-    spec: StoredValue<shared::stack::StackSpec>,
+    spec: Memo<Option<shared::stack::StackSpec>>,
     save: ServerAction<SaveStack>,
     images: Resource<Result<Vec<String>, shared::errors::docker::DockerError>>,
 ) -> impl IntoView {
@@ -299,7 +303,7 @@ fn AddService(
 
     let on_submit = move |ev: leptos::ev::SubmitEvent| {
         ev.prevent_default();
-        let mut next = spec.get_value();
+        let Some(mut next) = spec.get_untracked() else { return };
         next.services.push(ServiceSpec {
             name: name.get_untracked().trim().to_string(),
             image: image.get_untracked(),
