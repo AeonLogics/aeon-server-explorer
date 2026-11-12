@@ -1,13 +1,16 @@
 use leptos::prelude::*;
 use leptos_router::hooks::{use_location, use_navigate};
 use leptos_router::NavigateOptions;
-use shared::stack::{check_spec, valid_name, ServiceSpec, StackState, StackSummary};
+use std::collections::HashMap;
+
+use shared::stack::{check_spec, valid_name, ServiceSpec, StackSpec, StackState, StackSummary, StackView};
 
 use super::common::DockerProblem;
-use super::service_editor::ServiceInspector;
+use super::service_editor::{Editor, ServiceInspector};
 use crate::api::stacks::{get_images, get_stack, get_stacks, ApplyStack, CreateStack, SaveStack};
 use crate::components::icon::Ico;
 use crate::components::poll::{watch_session, Tick};
+use crate::components::status::calm_status;
 
 #[component]
 pub fn StateBadge(state: StackState) -> impl IntoView {
@@ -142,6 +145,14 @@ fn StackTable(list: Vec<StackSummary>) -> impl IntoView {
 // Marks "Add service" in the selection, since no service can have this name.
 const NEW: &str = "+new";
 
+// A save started from the changes bar: which services it carried, and whether to deploy after.
+#[derive(Clone)]
+struct PendingSave {
+    spec: StackSpec,
+    services: Vec<String>,
+    deploy: bool,
+}
+
 #[component]
 pub fn StackPage() -> impl IntoView {
     let location = use_location();
@@ -173,92 +184,175 @@ pub fn StackPage() -> impl IntoView {
     let images = Resource::new(|| (), |_| get_images());
     watch_session(move || stack.get().and_then(Result::err));
 
-    // The workbench lives outside the 5-second refresh: these memos only notify when the
-    // data really changed, so nothing you're typing gets rebuilt.
-    let spec = Memo::new(move |_| stack.get().and_then(Result::ok).map(|v| v.spec));
-    let compose = Memo::new(move |_| stack.get().and_then(Result::ok).map(|v| v.compose));
-    let folder = Memo::new(move |_| {
+    // The last view that loaded. A refresh that fails (Docker busy, a dropped request) keeps
+    // showing it instead of tearing down the workbench and everything typed into it.
+    let view_data = Memo::new(move |prev: Option<&Option<StackView>>| {
+        let current = name.get();
+        match stack.get() {
+            Some(Ok(v)) if v.spec.name == current => Some(v),
+            _ => prev
+                .cloned()
+                .flatten()
+                .filter(|v| v.spec.name == current),
+        }
+    });
+    let refresh_error = move || {
         stack
             .get()
-            .and_then(Result::ok)
-            .map(|v| v.folder)
-            .unwrap_or_default()
+            .and_then(Result::err)
+            .filter(|_| view_data.with(Option::is_some))
+    };
+
+    let spec = Memo::new(move |_| view_data.with(|v| v.as_ref().map(|v| v.spec.clone())));
+    let compose = Memo::new(move |_| view_data.with(|v| v.as_ref().map(|v| v.compose.clone())));
+    let folder = Memo::new(move |_| {
+        view_data.with(|v| v.as_ref().map(|v| v.folder.clone()).unwrap_or_default())
     });
-    let state = Memo::new(move |_| stack.get().and_then(Result::ok).map(|v| v.state));
+    let state = Memo::new(move |_| view_data.with(|v| v.as_ref().map(|v| v.state.clone())));
     let deployed =
         Signal::derive(move || state.get().is_some_and(|s| s != StackState::NotDeployed));
     let status = Memo::new(move |_| {
-        stack
-            .get()
-            .and_then(Result::ok)
-            .map(|v| v.status)
-            .unwrap_or_default()
+        view_data.with(|v| {
+            v.as_ref()
+                .map(|v| {
+                    v.status
+                        .iter()
+                        .cloned()
+                        .map(|mut s| {
+                            s.status_text = calm_status(&s.status_text);
+                            s
+                        })
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_default()
+        })
+    });
+    let last_apply = Memo::new(move |_| view_data.with(|v| v.as_ref().and_then(|v| v.last_apply.clone())));
+    let service_names = Memo::new(move |_| {
+        spec.with(|s| {
+            s.as_ref()
+                .map(|s| s.services.iter().map(|x| x.name.clone()).collect::<Vec<_>>())
+                .unwrap_or_default()
+        })
     });
 
     let selected = RwSignal::new(None::<String>);
-    let selected_status = Signal::derive(move || {
-        let current = selected.get();
-        status.with(|all| {
-            all.iter()
-                .find(|s| Some(&s.service) == current.as_ref())
-                .cloned()
-        })
-    });
-    let dirty = RwSignal::new(false);
-    let save_now = RwSignal::new(0u32);
-    let epoch = RwSignal::new(0u32);
-
-    let selected_spec = Memo::new(move |_| {
-        let current = selected.get();
-        spec.with(|s| {
-            s.as_ref().and_then(|s| {
-                s.services
-                    .iter()
-                    .find(|x| Some(&x.name) == current.as_ref())
-                    .cloned()
-            })
-        })
-    });
-
     Effect::new(move |_| {
-        let names: Option<Vec<String>> = spec.with(|s| {
-            s.as_ref()
-                .map(|s| s.services.iter().map(|x| x.name.clone()).collect())
-        });
-        let Some(names) = names else { return };
+        let names = service_names.get();
+        if spec.with(Option::is_none) {
+            return;
+        }
         let current = selected.get_untracked();
         let still_there = current
             .as_ref()
             .is_some_and(|c| c == NEW || names.contains(c));
         if !still_there {
-            dirty.set(false);
             selected.set(Some(
                 names.first().cloned().unwrap_or_else(|| NEW.to_string()),
             ));
         }
     });
 
-    // With unsaved edits, switching is refused and the changes bar asks for a decision.
-    let nudge = RwSignal::new(false);
-    let choose = move |next: String| {
-        if selected.get_untracked().as_deref() == Some(next.as_str()) {
+    let editors = RwSignal::new(HashMap::<String, Editor>::new());
+    let unsaved = Memo::new(move |_| {
+        let mut list: Vec<String> = editors.with(|all| {
+            all.iter()
+                .filter(|(_, e)| e.dirty.get())
+                .map(|(n, _)| n.clone())
+                .collect()
+        });
+        list.sort();
+        list
+    });
+    let bar_problem = RwSignal::new(None::<String>);
+    let pending = StoredValue::new(None::<PendingSave>);
+
+    // Saves every service with unsaved edits in one go, then deploys if asked.
+    let save_all = move |deploy: bool| {
+        bar_problem.set(None);
+        let Some(mut next) = spec.get_untracked() else { return };
+        let mut changes = Vec::new();
+        let mut services = Vec::new();
+        for service in unsaved.get_untracked() {
+            let Some(editor) = editors.with_untracked(|all| all.get(&service).copied()) else { continue };
+            let Some(build) = editor.build.get_value() else { continue };
+            match build.run(()) {
+                Ok((built, env)) => {
+                    editor.problem.set(None);
+                    if let Some(slot) = next.services.iter_mut().find(|s| s.name == built.name) {
+                        *slot = built;
+                    }
+                    changes.extend(env);
+                    services.push(service);
+                }
+                Err(message) => {
+                    editor.problem.set(Some(message.clone()));
+                    selected.set(Some(service.clone()));
+                    bar_problem.set(Some(format!("{service}: {message}")));
+                    return;
+                }
+            }
+        }
+        if let Err(p) = check_spec(&next) {
+            bar_problem.set(Some(p.0));
             return;
         }
-        if dirty.get_untracked() {
-            nudge.set(true);
-            set_timeout(move || nudge.set(false), std::time::Duration::from_millis(1800));
+        if services.is_empty() {
+            if deploy {
+                apply.dispatch(ApplyStack { name: name.get_untracked() });
+            }
             return;
         }
-        selected.set(Some(next));
+        pending.set_value(Some(PendingSave { spec: next.clone(), services, deploy }));
+        save.dispatch(SaveStack { spec: next, changes });
     };
 
-    let on_added = Callback::new(move |service: String| {
-        dirty.set(false);
-        selected.set(Some(service));
+    Effect::new(move |_| {
+        let result = save.value().get();
+        if result.is_none() {
+            return;
+        }
+        let Some(done) = pending.get_value() else { return };
+        pending.set_value(None);
+        match result {
+            Some(Ok(())) => {
+                // Load what was saved back into each form: new env values become masked.
+                for service in &done.services {
+                    let editor = editors.with_untracked(|all| all.get(service).copied());
+                    let saved = done.spec.services.iter().find(|s| &s.name == service).cloned();
+                    if let (Some(editor), Some(saved)) = (editor, saved) {
+                        if let Some(reload) = editor.reload.get_value() {
+                            reload.run(saved);
+                        }
+                        editor.dirty.set(false);
+                    }
+                }
+                if done.deploy {
+                    apply.dispatch(ApplyStack { name: name.get_untracked() });
+                }
+            }
+            Some(Err(e)) => bar_problem.set(Some(e.to_string())),
+            None => {}
+        }
     });
-    let on_saved = Callback::new(move |_: ()| epoch.update(|e| *e += 1));
 
-    let last_apply = Memo::new(move |_| stack.get().and_then(Result::ok).and_then(|v| v.last_apply));
+    let discard_all = move || {
+        bar_problem.set(None);
+        let saved = spec.get_untracked();
+        for service in unsaved.get_untracked() {
+            let Some(editor) = editors.with_untracked(|all| all.get(&service).copied()) else { continue };
+            let original = saved
+                .as_ref()
+                .and_then(|s| s.services.iter().find(|x| x.name == service).cloned());
+            if let (Some(original), Some(reload)) = (original, editor.reload.get_value()) {
+                reload.run(original);
+            }
+            editor.problem.set(None);
+            editor.dirty.set(false);
+        }
+    };
+
+    let on_added = Callback::new(move |service: String| selected.set(Some(service)));
 
     view! {
         <div class="page page--stack">
@@ -291,47 +385,62 @@ pub fn StackPage() -> impl IntoView {
                     </Show>
                 </header>
 
+                {move || refresh_error().map(|e| view! {
+                    <p class="stale-note" role="status">
+                        {format!("Couldn't refresh ({e}). Showing the last known state; your edits are safe.")}
+                    </p>
+                })}
+
                 <div class="workbench">
                     <nav class="workbench__list" aria-label="Services">
                         <span class="workbench__label">"SERVICES"</span>
-                        {move || {
-                            spec.with(|s| s.as_ref().map(|s| s.services.clone()))
-                                .unwrap_or_default()
-                                .into_iter()
-                                .map(|svc| {
-                                    let pick = svc.name.clone();
-                                    let is_current = svc.name.clone();
-                                    let for_dot = svc.name.clone();
-                                    let dot = move || {
-                                        status.with(|all| {
-                                            all.iter()
-                                                .find(|s| s.service == for_dot)
-                                                .map(|s| s.health.class())
-                                                .unwrap_or("is-idle")
-                                        })
-                                    };
-                                    view! {
-                                        <button
-                                            type="button"
-                                            class="workbench__item"
-                                            class:is-active=move || selected.get().as_deref() == Some(is_current.as_str())
-                                            on:click=move |_| choose(pick.clone())
-                                        >
-                                            <span class="workbench__name">
-                                                <span class=move || format!("dot {}", dot())></span>
-                                                {svc.name.clone()}
-                                            </span>
-                                            <span class="workbench__meta">{svc.image.clone()}</span>
-                                        </button>
-                                    }
-                                })
-                                .collect_view()
-                        }}
+                        <For each=move || service_names.get() key=|n| n.clone() let:service>
+                            {
+                                let pick = service.clone();
+                                let is_current = service.clone();
+                                let for_dot = service.clone();
+                                let for_dirty = service.clone();
+                                let for_image = service.clone();
+                                let dot = move || {
+                                    status.with(|all| {
+                                        all.iter()
+                                            .find(|s| s.service == for_dot)
+                                            .map(|s| s.health.class())
+                                            .unwrap_or("is-idle")
+                                    })
+                                };
+                                let image = move || {
+                                    spec.with(|s| {
+                                        s.as_ref()
+                                            .and_then(|s| s.services.iter().find(|x| x.name == for_image))
+                                            .map(|x| x.image.clone())
+                                            .unwrap_or_default()
+                                    })
+                                };
+                                view! {
+                                    <button
+                                        type="button"
+                                        class="workbench__item"
+                                        class:is-active=move || selected.get().as_deref() == Some(is_current.as_str())
+                                        on:click=move |_| selected.set(Some(pick.clone()))
+                                    >
+                                        <span class="workbench__name">
+                                            <span class=move || format!("dot {}", dot())></span>
+                                            {service.clone()}
+                                            <Show when=move || unsaved.with(|u| u.contains(&for_dirty))>
+                                                <span class="workbench__edited" title="Unsaved changes">"edited"</span>
+                                            </Show>
+                                        </span>
+                                        <span class="workbench__meta">{image}</span>
+                                    </button>
+                                }
+                            }
+                        </For>
                         <button
                             type="button"
                             class="workbench__item workbench__item--add"
                             class:is-active=move || selected.get().as_deref() == Some(NEW)
-                            on:click=move |_| choose(NEW.to_string())
+                            on:click=move |_| selected.set(Some(NEW.to_string()))
                         >
                             <Ico icon=icondata::LuPlus />
                             "Add service"
@@ -339,80 +448,100 @@ pub fn StackPage() -> impl IntoView {
                     </nav>
 
                     <section class="workbench__main">
-                        {move || {
-                            epoch.track();
-                            selected_spec.track();
-                            let current = selected.get()?;
-                            if current == NEW {
-                                return Some(view! { <AddService spec save images on_added /> }.into_any());
-                            }
-                            let stack = spec.get_untracked()?;
-                            Some(
+                        <Show when=move || selected.get().as_deref() == Some(NEW)>
+                            <AddService spec save images on_added />
+                        </Show>
+                        <For
+                            each=move || service_names.get()
+                            key=|n| n.clone()
+                            children=move |service: String| {
+                                let initial = spec.with_untracked(|s| {
+                                    s.as_ref().and_then(|s| s.services.iter().find(|x| x.name == service).cloned())
+                                });
+                                let Some(initial) = initial else { return ().into_any() };
+                                let editor = Editor::new();
+                                editors.update(|all| {
+                                    all.insert(service.clone(), editor);
+                                });
+                                let gone = service.clone();
+                                on_cleanup(move || {
+                                    editors.try_update(|all| {
+                                        all.remove(&gone);
+                                    });
+                                });
+                                let for_active = service.clone();
+                                let active = Signal::derive(move || selected.get().as_deref() == Some(for_active.as_str()));
+                                let for_status = service.clone();
+                                let service_status = Signal::derive(move || {
+                                    status.with(|all| all.iter().find(|s| s.service == for_status).cloned())
+                                });
                                 view! {
-                                    <ServiceInspector
-                                        stack
-                                        latest=spec
-                                        service=current
-                                        deployed
-                                        status=selected_status
-                                        save
-                                        images
-                                        dirty
-                                        save_now
-                                        on_saved
-                                    />
+                                    <div class:is-hidden=move || !active.get()>
+                                        <ServiceInspector
+                                            stack_name=name.get_untracked()
+                                            initial
+                                            latest=spec
+                                            deployed
+                                            status=service_status
+                                            active
+                                            save
+                                            images
+                                            editor
+                                        />
+                                    </div>
                                 }
-                                .into_any(),
-                            )
-                        }}
+                                .into_any()
+                            }
+                        />
                     </section>
                 </div>
 
-                <div class="changes" class:is-dirty=move || dirty.get() class:is-nudged=move || nudge.get()>
+                <div class="changes" class:is-dirty=move || !unsaved.with(Vec::is_empty) class:is-failed=move || bar_problem.with(Option::is_some)>
                     {move || {
-                        let has_services = spec.with(|s| s.as_ref().is_some_and(|s| !s.services.is_empty()));
+                        let has_services = !service_names.with(Vec::is_empty);
                         let busy = save.pending().get() || apply.pending().get();
-                        if dirty.get() {
+                        let edited = unsaved.get();
+                        if let Some(p) = bar_problem.get() {
+                            return view! {
+                                <span class="changes__dot is-down"></span>
+                                <span class="changes__text">{p}</span>
+                                <button type="button" class="btn btn--ghost" on:click=move |_| bar_problem.set(None)>"OK"</button>
+                            }
+                            .into_any();
+                        }
+                        if !edited.is_empty() {
+                            let text = if edited.len() == 1 {
+                                format!("Unsaved changes in {}", edited[0])
+                            } else {
+                                format!("Unsaved changes in {}", edited.join(", "))
+                            };
+                            let saving = save.pending().get();
+                            let deploying = apply.pending().get();
                             return view! {
                                 <span class="changes__dot is-warn"></span>
-                                <span class="changes__text">
-                                    {move || {
-                                        let service = selected.get().unwrap_or_default();
-                                        if nudge.get() {
-                                            format!("Save or discard your changes to {service} first")
-                                        } else {
-                                            format!("Unsaved changes to {service}")
-                                        }
-                                    }}
-                                </span>
-                                <button
-                                    type="button"
-                                    class="btn btn--ghost"
-                                    on:click=move |_| {
-                                        dirty.set(false);
-                                        epoch.update(|e| *e += 1);
-                                    }
-                                >
+                                <span class="changes__text">{text}</span>
+                                <button type="button" class="btn btn--ghost" disabled=busy on:click=move |_| discard_all()>
                                     "Discard"
                                 </button>
-                                <button
-                                    type="button"
-                                    class="btn btn--primary"
-                                    disabled=busy
-                                    on:click=move |_| save_now.update(|n| *n += 1)
-                                >
-                                    {if save.pending().get() { "Saving…" } else { "Save" }}
+                                <button type="button" class="btn btn--secondary" disabled=busy on:click=move |_| save_all(false)>
+                                    {if saving { "Saving…" } else { "Save" }}
+                                </button>
+                                <button type="button" class="btn btn--primary" disabled=busy on:click=move |_| save_all(true)>
+                                    {if deploying { "Deploying…" } else { "Save & deploy" }}
                                 </button>
                             }
                             .into_any();
                         }
                         // "Applied" is about the files; whether the containers actually run is separate.
                         let down = status.with(|all| all.iter().filter(|s| !s.running).count());
+                        let failed = last_apply.with(|r| r.as_ref().is_some_and(|r| !r.ok));
                         let (dot, text, action): (&str, String, Option<&'static str>) = match state.get() {
-                            Some(StackState::Pending) => ("is-warn", "Saved, but not live yet".into(), Some("Apply changes")),
+                            _ if apply.pending().get() => ("is-warn", "Deploying…".into(), None),
+                            Some(StackState::Pending | StackState::NotDeployed) if failed && has_services => ("is-down", "The last deploy failed. Fix it and deploy again.".into(), Some("Deploy again")),
+                            Some(StackState::Pending) => ("is-warn", "Saved, but not live yet".into(), Some("Deploy")),
                             Some(StackState::NotDeployed) if has_services => ("is-neutral", "Not deployed yet".into(), Some("Deploy")),
-                            Some(StackState::Deployed) if down == 1 => ("is-warn", "Applied, but 1 service isn't running. Check its logs.".into(), None),
-                            Some(StackState::Deployed) if down > 1 => ("is-warn", format!("Applied, but {down} services aren't running. Check their logs."), None),
+                            Some(StackState::Deployed) if down == 1 => ("is-warn", "Deployed, but 1 service isn't running. Check its logs.".into(), Some("Redeploy")),
+                            Some(StackState::Deployed) if down > 1 => ("is-warn", format!("Deployed, but {down} services aren't running. Check their logs."), Some("Redeploy")),
                             Some(StackState::Deployed) => ("is-ok", "Everything is live and running".into(), None),
                             _ => ("is-neutral", "Add a service to get started".into(), None),
                         };
@@ -425,11 +554,9 @@ pub fn StackPage() -> impl IntoView {
                                         type="button"
                                         class="btn btn--primary"
                                         disabled=busy
-                                        on:click=move |_| {
-                                            apply.dispatch(ApplyStack { name: name.get_untracked() });
-                                        }
+                                        on:click=move |_| save_all(true)
                                     >
-                                        {if apply.pending().get() { "Deploying…" } else { label }}
+                                        {label}
                                     </button>
                                 }
                             })}
@@ -455,7 +582,7 @@ pub fn StackPage() -> impl IntoView {
                                     <header class="last-deploy__head">
                                         <span class="dot is-down"></span>
                                         <strong>{format!("Last deploy failed · {}", record.at)}</strong>
-                                        <span class="last-deploy__hint">"Fix it, Save, then Apply again. Your saved changes are kept."</span>
+                                        <span class="last-deploy__hint">"Your changes are saved. Fix what Docker says below, then deploy again."</span>
                                     </header>
                                     <pre class="last-deploy__output">{record.output}</pre>
                                 </section>
@@ -473,7 +600,6 @@ pub fn StackPage() -> impl IntoView {
         </div>
     }
 }
-
 
 #[component]
 fn AddService(
@@ -518,6 +644,7 @@ fn AddService(
             volumes: Vec::new(),
             env: Vec::new(),
             command: Vec::new(),
+            user: None,
         });
         match check_spec(&next) {
             Err(p) => problem.set(Some(p.0)),

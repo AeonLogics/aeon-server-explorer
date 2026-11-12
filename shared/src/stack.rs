@@ -34,6 +34,9 @@ pub struct ServiceSpec {
     // Overrides the image's default command; empty keeps the image's own.
     #[serde(default)]
     pub command: Vec<String>,
+    // The user the program runs as, like "0" or "1000:1000"; None keeps the image's own.
+    #[serde(default)]
+    pub user: Option<String>,
 }
 
 pub const MAX_ARGS: usize = 50;
@@ -242,6 +245,17 @@ pub fn valid_container_path(path: &str) -> bool {
             .all(|c| c.is_ascii_alphanumeric() || matches!(c, '/' | '_' | '-' | '.'))
 }
 
+// A user name or ID, optionally with a group: "0", "postgres", "1000:1000".
+pub fn valid_user(user: &str) -> bool {
+    let part = |p: &str| {
+        !p.is_empty() && p.len() <= 32 && p.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-' | '.'))
+    };
+    match user.split_once(':') {
+        Some((u, g)) => part(u) && part(g),
+        None => part(user),
+    }
+}
+
 pub fn valid_host_port(port: u16) -> bool {
     port >= 1024
 }
@@ -305,6 +319,10 @@ pub fn check_spec(spec: &StackSpec) -> Result<(), SpecProblem> {
             if !paths.insert(v.path.as_str()) {
                 return fail(format!("{}: {} is mounted twice.", s.name, v.path));
             }
+        }
+
+        if s.user.as_deref().is_some_and(|u| !valid_user(u)) {
+            return fail(format!("{}: run as takes a user name or ID, like 0 or 1000:1000.", s.name));
         }
 
         if s.command.len() > MAX_ARGS {

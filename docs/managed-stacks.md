@@ -25,6 +25,7 @@ Files are written to a temporary name and then renamed, so a crash never leaves 
 | Image | one of the images already on the machine | `image:` |
 | Restart | unless stopped (default), always, on failure, never | `restart:` |
 | Command | optional; arguments written like on the command line | `command: ["start", "--log", "info"]` |
+| Run as | optional; a user name or ID, like `0` or `1000:1000` | `user: "0"` |
 | Ports | the port the app listens on; reachable inside the stack, or also on `127.0.0.1:<port>` | `expose:` or `ports: ["127.0.0.1:host:container"]` |
 | Storage | a name and an absolute path inside the container | a named volume `<stack>_<service>-<name>` |
 | Env | names `A-Z a-z 0-9 _`; values in the env file | `env_file: {path, format: raw}` |
@@ -53,7 +54,13 @@ Adding storage creates a named volume and mounts it at the path you choose. The 
 has to be told to save its data there (through its command or env). Use a folder meant for data,
 like `/data` or `/var/lib/postgresql/data`, never a path the image uses for its own program.
 
+A new volume belongs to root unless the image already has that folder. A program that runs as
+another user (SurrealDB does) then fails with *Permission denied*. Set **Run as** to `0` for it.
+
 ## Saving and applying
+
+Each service keeps its own edits while you switch between services. The changes bar lists the
+edited ones; **Save** saves all of them at once and **Save & deploy** also applies the stack.
 
 1. **Save** checks the form (names, installed images, free ports across all containers and
    stacks), then writes `explorer.json`, `compose.yml` and the env files.

@@ -2,7 +2,7 @@ use leptos::prelude::*;
 use shared::docker::{Action, ServiceDetail};
 use shared::errors::docker::DockerError;
 use shared::stack::{
-    check_spec, join_command, parse_env_file, split_command, EnvChange, PortSpec, Restart, ServiceSpec, ServiceStatus,
+    join_command, parse_env_file, split_command, EnvChange, PortSpec, Restart, ServiceSpec, ServiceStatus,
     StackSpec, VolumeSpec,
 };
 
@@ -54,24 +54,44 @@ struct EnvRow {
     shown: RwSignal<Option<String>>,
 }
 
-// The stack page owns `dirty` and `save_now`: the changes bar reads `dirty` and bumps
-// `save_now` when you press Save, so the bar can live outside the inspector.
+// What the stack page needs from one service's editor: whether it has unsaved edits,
+// a way to turn the form into a spec, and a way to load a spec back into the form.
+#[derive(Clone, Copy)]
+pub struct Editor {
+    pub dirty: RwSignal<bool>,
+    pub problem: RwSignal<Option<String>>,
+    pub build: StoredValue<Option<Callback<(), Result<(ServiceSpec, Vec<EnvChange>), String>>>>,
+    pub reload: StoredValue<Option<Callback<ServiceSpec>>>,
+}
+
+impl Editor {
+    pub fn new() -> Self {
+        Self {
+            dirty: RwSignal::new(false),
+            problem: RwSignal::new(None),
+            build: StoredValue::new(None),
+            reload: StoredValue::new(None),
+        }
+    }
+}
+
+// One inspector per service stays mounted while you work on the stack, so switching
+// services, saving and deploying never throw away what you typed or which tab is open.
 #[component]
 pub fn ServiceInspector(
-    stack: StackSpec,
+    stack_name: String,
+    initial: ServiceSpec,
     latest: Memo<Option<StackSpec>>,
-    service: String,
     deployed: Signal<bool>,
     status: Signal<Option<ServiceStatus>>,
+    active: Signal<bool>,
     save: ServerAction<SaveStack>,
     images: Resource<Result<Vec<String>, DockerError>>,
-    dirty: RwSignal<bool>,
-    save_now: RwSignal<u32>,
-    on_saved: Callback<()>,
+    editor: Editor,
 ) -> impl IntoView {
-    let Some(original) = stack.services.iter().find(|s| s.name == service).cloned() else {
-        return view! { <p class="tab-empty">"That service isn't in the stack anymore."</p> }.into_any();
-    };
+    let service = initial.name.clone();
+    let dirty = editor.dirty;
+    let problem = editor.problem;
 
     let tab = RwSignal::new(Tab::General);
     let next_id = StoredValue::new(0u32);
@@ -81,61 +101,70 @@ pub fn ServiceInspector(
     };
     let touch = move || dirty.set(true);
 
-    let image = RwSignal::new(original.image.clone());
-    let restart = RwSignal::new(original.restart);
-    let command = RwSignal::new(join_command(&original.command));
-    let ports = RwSignal::new(
-        original
-            .ports
-            .iter()
-            .map(|p| PortRow {
-                id: new_id(),
-                container: RwSignal::new(p.container.to_string()),
-                published: RwSignal::new(p.host.is_some()),
-                host: RwSignal::new(p.host.map(|h| h.to_string()).unwrap_or_default()),
-            })
-            .collect::<Vec<_>>(),
-    );
-    let volumes = RwSignal::new(
-        original
-            .volumes
-            .iter()
-            .map(|v| VolumeRow { id: new_id(), name: RwSignal::new(v.name.clone()), path: RwSignal::new(v.path.clone()) })
-            .collect::<Vec<_>>(),
-    );
-    let env = RwSignal::new(
-        original
-            .env
-            .iter()
-            .map(|n| EnvRow {
-                id: new_id(),
-                name: RwSignal::new(n.clone()),
-                existing: true,
-                value: RwSignal::new(String::new()),
-                editing: RwSignal::new(false),
-                shown: RwSignal::new(None),
-            })
-            .collect::<Vec<_>>(),
-    );
-
-    let problem = RwSignal::new(None::<String>);
+    let image = RwSignal::new(String::new());
+    let restart = RwSignal::new(Restart::default());
+    let command = RwSignal::new(String::new());
+    let user = RwSignal::new(String::new());
+    let ports = RwSignal::new(Vec::<PortRow>::new());
+    let volumes = RwSignal::new(Vec::<VolumeRow>::new());
+    let env = RwSignal::new(Vec::<EnvRow>::new());
     let env_text = RwSignal::new(None::<String>);
     let env_loading = RwSignal::new(false);
-    let submitted = RwSignal::new(false);
-    let stack_name = StoredValue::new(stack.name.clone());
+
+    let load = move |s: &ServiceSpec| {
+        image.set(s.image.clone());
+        restart.set(s.restart);
+        command.set(join_command(&s.command));
+        user.set(s.user.clone().unwrap_or_default());
+        ports.set(
+            s.ports
+                .iter()
+                .map(|p| PortRow {
+                    id: new_id(),
+                    container: RwSignal::new(p.container.to_string()),
+                    published: RwSignal::new(p.host.is_some()),
+                    host: RwSignal::new(p.host.map(|h| h.to_string()).unwrap_or_default()),
+                })
+                .collect(),
+        );
+        volumes.set(
+            s.volumes
+                .iter()
+                .map(|v| VolumeRow { id: new_id(), name: RwSignal::new(v.name.clone()), path: RwSignal::new(v.path.clone()) })
+                .collect(),
+        );
+        env.set(
+            s.env
+                .iter()
+                .map(|n| EnvRow {
+                    id: new_id(),
+                    name: RwSignal::new(n.clone()),
+                    existing: true,
+                    value: RwSignal::new(String::new()),
+                    editing: RwSignal::new(false),
+                    shown: RwSignal::new(None),
+                })
+                .collect(),
+        );
+        env_text.set(None);
+    };
+    load(&initial);
+
+    let stack_name = StoredValue::new(stack_name);
     let service_name = StoredValue::new(service.clone());
-    let default_container = format!("{}-{}-1", stack.name, service);
+    let default_container = format!("{}-{}-1", stack_name.get_value(), service);
     let container_name = Signal::derive(move || {
         status.get().map(|s| s.container).unwrap_or_else(|| default_container.clone())
     });
     let running = Signal::derive(move || status.with(|s| s.as_ref().is_some_and(|s| s.running)));
 
-    // Live facts and the Start / Stop / Restart buttons come from Docker, refreshed with the page.
+    // Live facts and the Start / Stop / Restart buttons come from Docker, refreshed with the
+    // page, but only for the service you're looking at.
     let tick = Tick::signal();
     let detail = Resource::new(
-        move || (status.with(Option::is_some), container_name.get(), tick.get()),
-        |(exists, container, _)| async move {
-            if exists { get_service(container).await.ok() } else { None }
+        move || (active.get() && status.with(Option::is_some), container_name.get(), tick.get()),
+        |(wanted, container, _)| async move {
+            if wanted { get_service(container).await.ok() } else { None }
         },
     );
     let dialog = RwSignal::new(None::<Action>);
@@ -227,6 +256,7 @@ pub fn ServiceInspector(
             names.push(var);
         }
 
+        let user = user.get_untracked().trim().to_string();
         let spec = ServiceSpec {
             name,
             image: image.get_untracked(),
@@ -235,54 +265,12 @@ pub fn ServiceInspector(
             volumes: out_volumes,
             env: names,
             command: split_command(&command.get_untracked())?,
+            user: (!user.is_empty()).then_some(user),
         };
         Ok((spec, changes))
     };
-
-    let save_draft = move || {
-        let (service_spec, changes) = match build() {
-            Ok(built) => built,
-            Err(message) => return problem.set(Some(message)),
-        };
-        let Some(mut next) = latest.get_untracked() else { return };
-        if let Some(slot) = next.services.iter_mut().find(|s| s.name == service_spec.name) {
-            *slot = service_spec;
-        }
-        if let Err(p) = check_spec(&next) {
-            return problem.set(Some(p.0));
-        }
-        problem.set(None);
-        submitted.set(true);
-        save.dispatch(SaveStack { spec: next, changes });
-    };
-
-    let seen = StoredValue::new(save_now.get_untracked());
-    Effect::new(move |_| {
-        let n = save_now.get();
-        if n != seen.get_value() {
-            seen.set_value(n);
-            save_draft();
-        }
-    });
-
-    Effect::new(move |_| {
-        let result = save.value().get();
-        if !submitted.get_untracked() {
-            return;
-        }
-        match result {
-            Some(Ok(())) => {
-                submitted.set(false);
-                dirty.set(false);
-                on_saved.run(());
-            }
-            Some(Err(e)) => {
-                submitted.set(false);
-                problem.set(Some(e.to_string()));
-            }
-            None => {}
-        }
-    });
+    editor.build.set_value(Some(Callback::new(move |_: ()| build())));
+    editor.reload.set_value(Some(Callback::new(move |s: ServiceSpec| load(&s))));
 
     let remove_service = move |_| {
         let Some(mut next) = latest.get_untracked() else { return };
@@ -430,7 +418,26 @@ pub fn ServiceInspector(
                         ". Keep passwords out of it; put them in Env (it shows up in compose.yml and docker inspect)."
                     </span>
                 </label>
-                <Show when=move || running.get() && tab.get() == Tab::General>
+                <label class="field inspector__command">
+                    <span class="field__label">"RUN AS"</span>
+                    <input
+                        class="field__input field__input--plain"
+                        type="text"
+                        placeholder="empty = the image's own user"
+                        autocomplete="off"
+                        spellcheck="false"
+                        prop:value=move || user.get()
+                        on:input=move |ev| {
+                            user.set(event_target_value(&ev));
+                            touch();
+                        }
+                    />
+                    <span class="field__hint">
+                        "A user name or ID inside the container, like "<code>"1000"</code>" or "<code>"1000:1000"</code>
+                        ". If the logs say Permission denied on its storage, "<code>"0"</code>" (root inside the container) fixes it."
+                    </span>
+                </label>
+                <Show when=move || active.get() && running.get() && tab.get() == Tab::General>
                     {move || view! { <StatsStrip container=container_name.get() /> }}
                 </Show>
                 <Transition fallback=|| ()>
@@ -515,7 +522,7 @@ pub fn ServiceInspector(
             </div>
 
             <div class="inspector__body" class:is-hidden=move || tab.get() != Tab::Storage>
-                <p class="inspector__hint">"Each storage is a named volume, kept across restarts and redeploys. Docker sets its owner, so the container can write to it."</p>
+                <p class="inspector__hint">"Each storage is a named volume, kept across restarts and redeploys. A new volume belongs to root unless the image already has that folder, so a program running as another user may not be able to write to it. Then set Run as to 0 in General."</p>
                 <For each=move || volumes.get() key=|r| r.id let:row>
                     <div class="editor__row editor__row--volume">
                         <input
@@ -689,7 +696,7 @@ pub fn ServiceInspector(
 
             <div class="inspector__body inspector__body--logs" class:is-hidden=move || tab.get() != Tab::Logs>
                 <Show
-                    when=move || deployed.get() && tab.get() == Tab::Logs
+                    when=move || active.get() && deployed.get() && tab.get() == Tab::Logs
                     fallback=move || view! { <p class="tab-empty">"Deploy the stack to see this service's logs."</p> }
                 >
                     {move || {

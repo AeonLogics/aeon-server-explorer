@@ -6,7 +6,7 @@ use shared::images::{HubResult, LocalImage, PullEvent, is_docker_hub, valid_repo
 use super::common::DockerProblem;
 use crate::api::images::{get_local_images, hub_tags, search_hub, DeleteImage, SearchHub};
 use crate::components::icon::Ico;
-use crate::components::poll::{watch_session, Tick};
+use crate::components::poll::{settled, watch_session, Tick};
 use crate::components::sse::{connect, SseEvent};
 use crate::components::stats::bytes;
 
@@ -22,6 +22,7 @@ pub fn ImagesPage() -> impl IntoView {
     watch_session(move || images.get().and_then(Result::err));
 
     let removed_error = move || remove.value().get().and_then(Result::err).map(|e| e.to_string());
+    let shown = settled(move || images.get());
 
     view! {
         <div class="page">
@@ -38,7 +39,11 @@ pub fn ImagesPage() -> impl IntoView {
             {move || removed_error().map(|e| view! { <p class="flash is-err" role="alert">{e}</p> })}
             <Transition fallback=|| view! { <div class="skeleton skeleton--block"></div> }>
                 {move || {
-                    images
+                    let _ = images.get();
+                    view! { <span hidden></span> }
+                }}
+                {move || {
+                    shown
                         .get()
                         .map(|result| match result {
                             Err(error) => view! { <DockerProblem error /> }.into_any(),

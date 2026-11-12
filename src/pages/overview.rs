@@ -8,8 +8,9 @@ use crate::api::audit::get_audit;
 use crate::api::docker::ContainerAction;
 use crate::api::stacks::get_stacks;
 use crate::components::icon::Ico;
-use crate::components::poll::Tick;
+use crate::components::poll::{settled, Tick};
 use crate::components::stats::bytes;
+use crate::components::status::calm_projects;
 
 const ACTIVITY: usize = 5;
 
@@ -28,32 +29,46 @@ pub fn OverviewPage() -> impl IntoView {
         }
     });
 
+    // The first closure in the Transition reads the resources so it waits for them; the board
+    // itself renders from these, which only change when the data does.
+    let board = settled(move || {
+        overview.get().map(|r| {
+            r.map(|mut o| {
+                o.projects = calm_projects(o.projects);
+                o
+            })
+        })
+    });
+    let pending = settled(move || {
+        stacks.get().and_then(Result::ok).map(|list| {
+            list.into_iter()
+                .filter(|s| s.state == StackState::Pending)
+                .collect::<Vec<StackSummary>>()
+        })
+    });
+    let recent = settled(move || {
+        activity
+            .get()
+            .and_then(Result::ok)
+            .map(|list| list.into_iter().take(ACTIVITY).collect::<Vec<AuditEntry>>())
+    });
+
     view! {
         <div class="page page--board">
             <Transition fallback=|| view! { <CardSkeletons count=3 /> }>
                 {move || {
-                    overview
-                        .get()
-                        .map(|result| match result {
-                            Ok(data) => {
-                                let pending: Vec<StackSummary> = stacks
-                                    .get()
-                                    .and_then(Result::ok)
-                                    .unwrap_or_default()
-                                    .into_iter()
-                                    .filter(|s| s.state == StackState::Pending)
-                                    .collect();
-                                let recent: Vec<AuditEntry> = activity
-                                    .get()
-                                    .and_then(Result::ok)
-                                    .unwrap_or_default()
-                                    .into_iter()
-                                    .take(ACTIVITY)
-                                    .collect();
-                                view! { <Board data pending recent start /> }.into_any()
-                            }
-                            Err(error) => view! { <DockerProblem error /> }.into_any(),
-                        })
+                    let _ = (overview.get(), stacks.get(), activity.get());
+                    view! { <span hidden></span> }
+                }}
+                {move || {
+                    board.get().map(|result| match result {
+                        Ok(data) => {
+                            let pending = pending.get().unwrap_or_default();
+                            let recent = recent.get().unwrap_or_default();
+                            view! { <Board data pending recent start /> }.into_any()
+                        }
+                        Err(error) => view! { <DockerProblem error /> }.into_any(),
+                    })
                 }}
             </Transition>
         </div>

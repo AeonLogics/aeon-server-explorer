@@ -635,9 +635,39 @@
   font-size: $text-xs;
 }
 
-.changes.is-nudged {
-  border-color: $warn-dot;
-  box-shadow: 0 0 0 3px $warn-wash;
+.changes.is-failed {
+  border-color: rgba(179, 38, 30, 0.3);
+  background: #fffafa;
+
+  .changes__text {
+    color: $down;
+    white-space: normal;
+  }
+}
+
+.changes__dot.is-down {
+  background: $down-dot;
+}
+
+.workbench__main > .is-hidden {
+  display: none;
+}
+
+.workbench__edited {
+  padding: 0 0.35rem;
+  color: $warn;
+  background: $warn-wash;
+  border-radius: 3px;
+  font-size: $text-xs;
+}
+
+.stale-note {
+  margin-bottom: space(3);
+  padding: space(2) space(3);
+  color: $warn;
+  background: $warn-wash;
+  border-radius: $radius;
+  font-size: $text-xs;
 }
 
 .inspector__command {

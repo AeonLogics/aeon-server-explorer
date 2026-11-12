@@ -30,6 +30,15 @@ impl Tick {
     }
 }
 
+// A polled value that only notifies when it really changed. Render from this instead of the
+// resource, so a refresh that brings back the same data rebuilds nothing on screen.
+pub fn settled<T>(read: impl Fn() -> Option<T> + Send + Sync + 'static) -> Memo<Option<T>>
+where
+    T: Clone + PartialEq + Send + Sync + 'static,
+{
+    Memo::new(move |prev: Option<&Option<T>>| read().or_else(|| prev.cloned().flatten()))
+}
+
 // A refresh that says the session is gone sends the whole app back to the login screen.
 pub fn watch_session(error: impl Fn() -> Option<DockerError> + 'static) {
     let auth = AuthState::get();

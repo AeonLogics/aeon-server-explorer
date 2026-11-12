@@ -6,7 +6,7 @@ use server_fn::{
 
 use super::InternalServerError;
 
-#[derive(Debug, Clone, Serialize, Deserialize, thiserror::Error)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, thiserror::Error)]
 pub enum DockerError {
     #[error("Your session has ended. Sign in again.")]
     Unauthorized,

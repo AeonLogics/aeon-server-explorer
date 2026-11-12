@@ -7,8 +7,8 @@ use shared::errors::docker::DockerError;
 use super::gate::OverviewData;
 use crate::components::auth::LogoutButton;
 use crate::components::icon::Ico;
-use crate::components::poll::route_parts;
-use crate::components::status::StatusDot;
+use crate::components::poll::{route_parts, settled};
+use crate::components::status::{calm_projects, StatusDot};
 
 #[component]
 pub fn Sidebar(admin: Admin) -> impl IntoView {
@@ -22,13 +22,8 @@ pub fn Sidebar(admin: Admin) -> impl IntoView {
     let on_stacks = move || location.pathname.get().starts_with("/stacks");
     let on_images = move || location.pathname.get() == "/images";
 
-    let projects = move || {
-        overview
-            .get()
-            .and_then(Result::ok)
-            .map(|o| o.projects)
-            .unwrap_or_default()
-    };
+    let loaded = settled(move || overview.get().and_then(Result::ok).map(|o| calm_projects(o.projects)));
+    let projects = move || loaded.get().unwrap_or_default();
     let filtered = move || {
         let needle = search.get().trim().to_lowercase();
         projects()
@@ -76,6 +71,10 @@ pub fn Sidebar(admin: Admin) -> impl IntoView {
             <div class="sidebar__section">
                 <span class="label">"PROJECTS"</span>
                 <Transition fallback=|| ()>
+                    {move || {
+                        let _ = overview.get();
+                        view! { <span hidden></span> }
+                    }}
                     <span class="sidebar__count">{move || projects().len()}</span>
                 </Transition>
             </div>
@@ -94,8 +93,12 @@ pub fn Sidebar(admin: Admin) -> impl IntoView {
             <nav class="projects">
                 <Transition fallback=|| view! { <ProjectSkeleton /> }>
                     {move || {
+                        let _ = overview.get();
+                        view! { <span hidden></span> }
+                    }}
+                    {move || {
                         let list = filtered();
-                        if list.is_empty() && overview.get().is_some_and(|r| r.is_ok()) {
+                        if list.is_empty() && loaded.with(Option::is_some) {
                             let message = if search.get().trim().is_empty() {
                                 "No containers yet."
                             } else {

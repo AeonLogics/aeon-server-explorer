@@ -8,8 +8,8 @@ use crate::api::docker::get_project;
 use crate::api::stacks::is_managed;
 use crate::components::chips::{NetworkChip, PortChip};
 use crate::components::icon::Ico;
-use crate::components::poll::{route_parts, watch_session, Tick};
-use crate::components::status::HealthBadge;
+use crate::components::poll::{route_parts, settled, watch_session, Tick};
+use crate::components::status::{calm_detail, HealthBadge};
 
 #[component]
 pub fn ProjectPage() -> impl IntoView {
@@ -32,11 +32,17 @@ pub fn ProjectPage() -> impl IntoView {
         }
     });
 
+    let shown = settled(move || project.get().map(|r| r.map(calm_detail)));
+
     view! {
         <div class="page">
             <Transition fallback=|| view! { <CardSkeletons count=4 /> }>
                 {move || {
-                    project
+                    let _ = project.get();
+                    view! { <span hidden></span> }
+                }}
+                {move || {
+                    shown
                         .get()
                         .map(|result| match result {
                             Ok(detail) => {
