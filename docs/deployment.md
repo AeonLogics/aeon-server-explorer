@@ -36,13 +36,15 @@ On the server:
 cd ~/services/aeon-server-explorer
 chmod 600 .env
 getent group docker | cut -d: -f3   # put this number in DOCKER_GID
-nano .env                           # ADMIN_EMAIL, ADMIN_PASSWORD, DOCKER_GID, STACKS_DIR
+stat -c '%g' ~/services             # put this number in STACKS_GID
+nano .env                           # ADMIN_EMAIL, ADMIN_PASSWORD, DOCKER_GID, STACKS_DIR, STACKS_GID
 ```
 
 `STACKS_DIR` is the folder with one subfolder per compose stack (for example `/home/you/services`).
 It's mounted at the same path inside the container, so compose files and their relative paths
-keep working. For stacks created in the app it must be writable by the container's user
-(uid 10001).
+keep working. The container runs as uid 10001 and joins the folder's group (`STACKS_GID`), so
+for stacks created in the app the folder only needs to be group-writable (`chmod 775`). No
+owners change.
 
 ## 4. Start it
 
@@ -85,5 +87,6 @@ Repeat steps 1, 2 and 4. The database lives in the `explorer-data` volume and su
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | | the first admin; only read while no admin exists |
 | `DOCKER_GID` | | the server's docker group, so the app may use the socket |
 | `STACKS_DIR` | `data/stacks` | the folder with one subfolder per stack |
+| `STACKS_GID` | `DOCKER_GID` | that folder's group, so the app can write there |
 | `SURREAL_URI` | `surrealkv://data/explorer.db` | the database; a `ws://` URI also needs `SURREAL_USER` / `SURREAL_PASS` |
 | `LEPTOS_SITE_ADDR` | `127.0.0.1:5050` in the image | listen address; must be loopback |
