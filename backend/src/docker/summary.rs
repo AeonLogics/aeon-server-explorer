@@ -5,8 +5,8 @@ use bollard::Docker;
 use bollard::models::ContainerSummary;
 use bollard::query_parameters::ListContainersOptionsBuilder;
 use shared::docker::{
-    Health, Member, Overview, PortInfo, ProjectDetail, ProjectSummary, STANDALONE, STANDALONE_SLUG,
-    ServiceCard, ServiceKind,
+    FINISHED, Health, LABEL_RUN_ONCE, Member, Overview, PortInfo, ProjectDetail, ProjectSummary, STANDALONE,
+    STANDALONE_SLUG, ServiceCard, ServiceKind,
 };
 use shared::errors::docker::DockerError;
 
@@ -86,7 +86,8 @@ fn group(containers: &[ContainerSummary]) -> Vec<(Option<String>, Vec<&Container
 
 fn summarize(key: Option<String>, cards: &[ServiceCard]) -> ProjectSummary {
     let total = cards.len() as u32;
-    let running = cards.iter().filter(|c| c.state == "running").count() as u32;
+    // A finished run-once helper counts as up: it did its job and isn't meant to keep running.
+    let running = cards.iter().filter(|c| c.is_settled()).count() as u32;
     let unhealthy = cards.iter().filter(|c| c.health_label == "Unhealthy").count() as u32;
     let exposed_ports = cards
         .iter()
@@ -114,7 +115,7 @@ fn summarize(key: Option<String>, cards: &[ServiceCard]) -> ProjectSummary {
             container: c.container_name.clone(),
             health: c.health,
             health_label: c.health_label.clone(),
-            running: c.state == "running",
+            running: c.is_settled(),
             status_text: c.status_text.clone(),
             exposed: c.ports.iter().filter(|p| p.exposed).map(PortInfo::label).collect(),
         })
@@ -154,7 +155,11 @@ pub(crate) fn card(c: &ContainerSummary) -> ServiceCard {
         .and_then(|h| h.status.as_ref())
         .map(|s| s.to_string())
         .unwrap_or_default();
-    let (health, health_label) = classify(&state, &check);
+    let status_text = c.status.clone().unwrap_or_default();
+    let finished_helper = labels.get(LABEL_RUN_ONCE).map(String::as_str) == Some("true")
+        && state == "exited"
+        && status_text.starts_with("Exited (0)");
+    let (health, health_label) = if finished_helper { (Health::Ok, FINISHED) } else { classify(&state, &check) };
 
     let mut networks: Vec<String> = c
         .network_settings
@@ -171,7 +176,7 @@ pub(crate) fn card(c: &ContainerSummary) -> ServiceCard {
         kind: kind_of(&image),
         image,
         state,
-        status_text: c.status.clone().unwrap_or_default(),
+        status_text,
         health,
         health_label: health_label.to_string(),
         ports: ports(c),

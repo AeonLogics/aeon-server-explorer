@@ -16,7 +16,76 @@ pub struct EnvChange {
 pub struct StackSpec {
     pub name: String,
     pub services: Vec<ServiceSpec>,
+    // Volumes that belong to the stack, so several services can mount the same one.
+    #[serde(default)]
+    pub storages: Vec<StorageSpec>,
+    // Extra networks for keeping services apart; every stack also has `default`.
+    #[serde(default)]
+    pub networks: Vec<NetworkSpec>,
 }
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StorageSpec {
+    pub name: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NetworkSpec {
+    pub name: String,
+}
+
+// A stack storage mounted into one service.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MountSpec {
+    pub storage: String,
+    pub path: String,
+    #[serde(default)]
+    pub read_only: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum StartCondition {
+    Started,
+    Healthy,
+    Finished,
+}
+
+impl StartCondition {
+    pub const ALL: [StartCondition; 3] = [Self::Started, Self::Healthy, Self::Finished];
+
+    pub fn compose(self) -> &'static str {
+        match self {
+            Self::Started => "service_started",
+            Self::Healthy => "service_healthy",
+            Self::Finished => "service_completed_successfully",
+        }
+    }
+
+    pub fn key(self) -> &'static str {
+        match self {
+            Self::Started => "started",
+            Self::Healthy => "healthy",
+            Self::Finished => "finished",
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Started => "is running",
+            Self::Healthy => "is healthy",
+            Self::Finished => "finished successfully",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DependsSpec {
+    pub service: String,
+    pub condition: StartCondition,
+}
+
+pub const DEFAULT_NETWORK: &str = "default";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ServiceSpec {
@@ -37,6 +106,48 @@ pub struct ServiceSpec {
     // The user the program runs as, like "0" or "1000:1000"; None keeps the image's own.
     #[serde(default)]
     pub user: Option<String>,
+    #[serde(default)]
+    pub mounts: Vec<MountSpec>,
+    // Empty means only the default network.
+    #[serde(default)]
+    pub networks: Vec<String>,
+    #[serde(default)]
+    pub depends_on: Vec<DependsSpec>,
+    // A helper that runs to the end and stays stopped (restart: "no").
+    #[serde(default)]
+    pub run_once: bool,
+}
+
+impl ServiceSpec {
+    pub fn new(name: String, image: String) -> Self {
+        Self {
+            name,
+            image,
+            restart: Restart::default(),
+            ports: Vec::new(),
+            volumes: Vec::new(),
+            env: Vec::new(),
+            command: Vec::new(),
+            user: None,
+            mounts: Vec::new(),
+            networks: Vec::new(),
+            depends_on: Vec::new(),
+            run_once: false,
+        }
+    }
+
+    pub fn on_networks(&self) -> Vec<String> {
+        if self.networks.is_empty() {
+            vec![DEFAULT_NETWORK.to_string()]
+        } else {
+            self.networks.clone()
+        }
+    }
+}
+
+// The compose key of a service's own volume; a shared storage uses its plain name.
+pub fn own_volume_key(service: &str, volume: &str) -> String {
+    format!("{service}-{volume}")
 }
 
 pub const MAX_ARGS: usize = 50;
@@ -128,6 +239,9 @@ pub struct PortSpec {
     pub container: u16,
     // Some(port) publishes it on 127.0.0.1:port; None keeps it inside the stack.
     pub host: Option<u16>,
+    // A debug port: published on 0.0.0.0, so every network the server is on can reach it.
+    #[serde(default)]
+    pub public: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -273,6 +387,37 @@ pub fn check_spec(spec: &StackSpec) -> Result<(), SpecProblem> {
         return fail(format!("A stack can have up to {MAX_SERVICES} services."));
     }
 
+    let mut storage_names = std::collections::HashSet::new();
+    for st in &spec.storages {
+        if !valid_name(&st.name) {
+            return fail(format!("\"{}\" isn't a valid storage name.", st.name));
+        }
+        if !storage_names.insert(st.name.as_str()) {
+            return fail(format!("Two storages are called {}.", st.name));
+        }
+    }
+    let mut network_names = std::collections::HashSet::new();
+    for n in &spec.networks {
+        if !valid_name(&n.name) || n.name == DEFAULT_NETWORK {
+            return fail(format!("\"{}\" can't be a network name.", n.name));
+        }
+        if !network_names.insert(n.name.as_str()) {
+            return fail(format!("Two networks are called {}.", n.name));
+        }
+    }
+    let all_services: std::collections::HashSet<&str> = spec.services.iter().map(|s| s.name.as_str()).collect();
+    for s in &spec.services {
+        for v in &s.volumes {
+            let key = own_volume_key(&s.name, &v.name);
+            if storage_names.contains(key.as_str()) {
+                return fail(format!(
+                    "The storage {key} has the same name as {}'s own storage {}. Rename one of them.",
+                    s.name, v.name
+                ));
+            }
+        }
+    }
+
     let mut service_names = std::collections::HashSet::new();
     let mut host_ports = std::collections::HashSet::new();
     for s in &spec.services {
@@ -320,6 +465,47 @@ pub fn check_spec(spec: &StackSpec) -> Result<(), SpecProblem> {
                 return fail(format!("{}: {} is mounted twice.", s.name, v.path));
             }
         }
+        let mut mounted = std::collections::HashSet::new();
+        for m in &s.mounts {
+            if !storage_names.contains(m.storage.as_str()) {
+                return fail(format!("{}: there's no storage called {} in this stack.", s.name, m.storage));
+            }
+            if !mounted.insert(m.storage.as_str()) {
+                return fail(format!("{}: storage {} is mounted twice.", s.name, m.storage));
+            }
+            if !valid_container_path(&m.path) {
+                return fail(format!("{}: \"{}\" isn't a valid absolute path.", s.name, m.path));
+            }
+            if !paths.insert(m.path.as_str()) {
+                return fail(format!("{}: {} is mounted twice.", s.name, m.path));
+            }
+        }
+
+        let mut joined = std::collections::HashSet::new();
+        for n in &s.networks {
+            if n != DEFAULT_NETWORK && !network_names.contains(n.as_str()) {
+                return fail(format!("{}: there's no network called {n} in this stack.", s.name));
+            }
+            if !joined.insert(n.as_str()) {
+                return fail(format!("{}: network {n} is listed twice.", s.name));
+            }
+        }
+
+        let mut after = std::collections::HashSet::new();
+        for d in &s.depends_on {
+            if d.service == s.name {
+                return fail(format!("{} can't wait for itself.", s.name));
+            }
+            if !all_services.contains(d.service.as_str()) {
+                return fail(format!("{}: there's no service called {} to wait for.", s.name, d.service));
+            }
+            if !after.insert(d.service.as_str()) {
+                return fail(format!("{}: {} is listed twice in Start after.", s.name, d.service));
+            }
+        }
+        if s.ports.iter().any(|p| p.public && p.host.is_none()) {
+            return fail(format!("{}: a debug port needs a server port.", s.name));
+        }
 
         if s.user.as_deref().is_some_and(|u| !valid_user(u)) {
             return fail(format!("{}: run as takes a user name or ID, like 0 or 1000:1000.", s.name));
@@ -342,5 +528,42 @@ pub fn check_spec(spec: &StackSpec) -> Result<(), SpecProblem> {
             }
         }
     }
+    if let Some(cycle) = start_cycle(spec) {
+        return fail(format!("{cycle} wait for each other, so none of them could start."));
+    }
     Ok(())
+}
+
+// Finds a loop in Start after, like "web waits for db, db waits for web".
+fn start_cycle(spec: &StackSpec) -> Option<String> {
+    fn visit<'a>(
+        name: &'a str,
+        spec: &'a StackSpec,
+        path: &mut Vec<&'a str>,
+        done: &mut std::collections::HashSet<&'a str>,
+    ) -> Option<String> {
+        if let Some(start) = path.iter().position(|p| *p == name) {
+            let names: Vec<&str> = path[start..].to_vec();
+            return Some(names.join(" and "));
+        }
+        if done.contains(name) {
+            return None;
+        }
+        path.push(name);
+        if let Some(service) = spec.services.iter().find(|s| s.name == name) {
+            for d in &service.depends_on {
+                if let Some(found) = visit(&d.service, spec, path, done) {
+                    return Some(found);
+                }
+            }
+        }
+        path.pop();
+        done.insert(name);
+        None
+    }
+
+    let mut done = std::collections::HashSet::new();
+    spec.services
+        .iter()
+        .find_map(|s| visit(&s.name, spec, &mut Vec::new(), &mut done))
 }

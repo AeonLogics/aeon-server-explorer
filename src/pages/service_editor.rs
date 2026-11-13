@@ -2,8 +2,8 @@ use leptos::prelude::*;
 use shared::docker::{Action, ServiceDetail};
 use shared::errors::docker::DockerError;
 use shared::stack::{
-    join_command, parse_env_file, split_command, EnvChange, PortSpec, Restart, ServiceSpec, ServiceStatus,
-    StackSpec, VolumeSpec,
+    join_command, parse_env_file, split_command, DependsSpec, EnvChange, MountSpec, PortSpec, Restart, ServiceSpec,
+    ServiceStatus, StackSpec, StartCondition, VolumeSpec, DEFAULT_NETWORK,
 };
 
 use crate::api::docker::get_service;
@@ -34,7 +34,23 @@ struct PortRow {
     id: u32,
     container: RwSignal<String>,
     published: RwSignal<bool>,
+    public: RwSignal<bool>,
     host: RwSignal<String>,
+}
+
+#[derive(Clone, Copy)]
+struct MountRow {
+    id: u32,
+    storage: RwSignal<String>,
+    path: RwSignal<String>,
+    read_only: RwSignal<bool>,
+}
+
+#[derive(Clone, Copy)]
+struct AfterRow {
+    id: u32,
+    service: RwSignal<String>,
+    condition: RwSignal<StartCondition>,
 }
 
 #[derive(Clone, Copy)]
@@ -105,6 +121,10 @@ pub fn ServiceInspector(
     let restart = RwSignal::new(Restart::default());
     let command = RwSignal::new(String::new());
     let user = RwSignal::new(String::new());
+    let run_once = RwSignal::new(false);
+    let networks = RwSignal::new(Vec::<String>::new());
+    let mounts = RwSignal::new(Vec::<MountRow>::new());
+    let after = RwSignal::new(Vec::<AfterRow>::new());
     let ports = RwSignal::new(Vec::<PortRow>::new());
     let volumes = RwSignal::new(Vec::<VolumeRow>::new());
     let env = RwSignal::new(Vec::<EnvRow>::new());
@@ -116,6 +136,25 @@ pub fn ServiceInspector(
         restart.set(s.restart);
         command.set(join_command(&s.command));
         user.set(s.user.clone().unwrap_or_default());
+        run_once.set(s.run_once);
+        networks.set(s.on_networks());
+        mounts.set(
+            s.mounts
+                .iter()
+                .map(|m| MountRow {
+                    id: new_id(),
+                    storage: RwSignal::new(m.storage.clone()),
+                    path: RwSignal::new(m.path.clone()),
+                    read_only: RwSignal::new(m.read_only),
+                })
+                .collect(),
+        );
+        after.set(
+            s.depends_on
+                .iter()
+                .map(|d| AfterRow { id: new_id(), service: RwSignal::new(d.service.clone()), condition: RwSignal::new(d.condition) })
+                .collect(),
+        );
         ports.set(
             s.ports
                 .iter()
@@ -123,6 +162,7 @@ pub fn ServiceInspector(
                     id: new_id(),
                     container: RwSignal::new(p.container.to_string()),
                     published: RwSignal::new(p.host.is_some()),
+                    public: RwSignal::new(p.public),
                     host: RwSignal::new(p.host.map(|h| h.to_string()).unwrap_or_default()),
                 })
                 .collect(),
@@ -181,8 +221,31 @@ pub fn ServiceInspector(
                 id: new_id(),
                 container: RwSignal::new(String::new()),
                 published: RwSignal::new(false),
+                public: RwSignal::new(false),
                 host: RwSignal::new(String::new()),
             })
+        })
+    };
+    let add_mount = move |_| {
+        touch();
+        let first = latest.with_untracked(|s| s.as_ref().and_then(|s| s.storages.first()).map(|x| x.name.clone()));
+        mounts.update(|rows| {
+            rows.push(MountRow {
+                id: new_id(),
+                storage: RwSignal::new(first.unwrap_or_default()),
+                path: RwSignal::new(String::new()),
+                read_only: RwSignal::new(false),
+            })
+        })
+    };
+    let add_after = move |_| {
+        touch();
+        let me = service_name.get_value();
+        let first = latest.with_untracked(|s| {
+            s.as_ref().and_then(|s| s.services.iter().find(|x| x.name != me)).map(|x| x.name.clone())
+        });
+        after.update(|rows| {
+            rows.push(AfterRow { id: new_id(), service: RwSignal::new(first.unwrap_or_default()), condition: RwSignal::new(StartCondition::Started) })
         })
     };
     let add_volume = move |_| {
@@ -223,7 +286,8 @@ pub fn ServiceInspector(
             } else {
                 None
             };
-            out_ports.push(PortSpec { container, host });
+            let public = host.is_some() && row.public.get_untracked();
+            out_ports.push(PortSpec { container, host, public });
         }
 
         let mut out_volumes = Vec::new();
@@ -234,6 +298,34 @@ pub fn ServiceInspector(
                 continue;
             }
             out_volumes.push(VolumeSpec { name: v_name, path });
+        }
+
+        let mut out_mounts = Vec::new();
+        for row in mounts.get_untracked() {
+            let path = row.path.get_untracked().trim().to_string();
+            let storage = row.storage.get_untracked();
+            if path.is_empty() && storage.is_empty() {
+                continue;
+            }
+            if storage.is_empty() {
+                return Err("Pick which shared storage to mount.".into());
+            }
+            out_mounts.push(MountSpec { storage, path, read_only: row.read_only.get_untracked() });
+        }
+
+        let out_after: Vec<DependsSpec> = after
+            .get_untracked()
+            .into_iter()
+            .filter(|r| !r.service.get_untracked().is_empty())
+            .map(|r| DependsSpec { service: r.service.get_untracked(), condition: r.condition.get_untracked() })
+            .collect();
+
+        let mut out_networks = networks.get_untracked();
+        if out_networks.is_empty() {
+            return Err("A service has to be on at least one network.".into());
+        }
+        if out_networks == [DEFAULT_NETWORK] {
+            out_networks.clear();
         }
 
         let mut names = Vec::new();
@@ -266,6 +358,10 @@ pub fn ServiceInspector(
             env: names,
             command: split_command(&command.get_untracked())?,
             user: (!user.is_empty()).then_some(user),
+            mounts: out_mounts,
+            networks: out_networks,
+            depends_on: out_after,
+            run_once: run_once.get_untracked(),
         };
         Ok((spec, changes))
     };
@@ -348,7 +444,7 @@ pub fn ServiceInspector(
             <div class="tabs inspector__tabs" role="tablist">
                 <TabButton tab which=Tab::General label="General" count=Signal::derive(|| String::new()) />
                 <TabButton tab which=Tab::Ports label="Ports" count=Signal::derive(move || count(ports.with(Vec::len))) />
-                <TabButton tab which=Tab::Storage label="Storage" count=Signal::derive(move || count(volumes.with(Vec::len))) />
+                <TabButton tab which=Tab::Storage label="Storage" count=Signal::derive(move || count(volumes.with(Vec::len) + mounts.with(Vec::len))) />
                 <TabButton tab which=Tab::Env label="Env" count=Signal::derive(move || count(env.with(Vec::len))) />
                 <TabButton tab which=Tab::Logs label="Logs" count=Signal::derive(|| String::new()) />
             </div>
@@ -370,6 +466,7 @@ pub fn ServiceInspector(
                         <span class="field__label">"RESTART"</span>
                         <select
                             class="field__input field__input--plain"
+                            disabled=move || run_once.get()
                             prop:value=move || restart.get().compose()
                             on:change=move |ev| {
                                 let picked = event_target_value(&ev);
@@ -383,6 +480,20 @@ pub fn ServiceInspector(
                         </select>
                     </label>
                 </div>
+                <label class="check inspector__check">
+                    <input
+                        type="checkbox"
+                        prop:checked=move || run_once.get()
+                        on:change=move |ev| {
+                            run_once.set(event_target_checked(&ev));
+                            touch();
+                        }
+                    />
+                    <span>
+                        <strong>"Runs once"</strong>
+                        " A helper that runs to the end and stays stopped, like a setup step. Exit code 0 shows as Finished, not as a problem."
+                    </span>
+                </label>
                 <label class="field inspector__command">
                     <span class="field__label">"COMMAND"</span>
                     <input
@@ -422,6 +533,121 @@ pub fn ServiceInspector(
                         ". If the logs say Permission denied on its storage, "<code>"0"</code>" (root inside the container) fixes it."
                     </span>
                 </label>
+
+                <div class="field inspector__command">
+                    <span class="field__label">"START AFTER"</span>
+                    <For each=move || after.get() key=|r| r.id let:row>
+                        {
+                            let me = service_name.get_value();
+                            let current = row.service.get_untracked();
+                            let others: Vec<String> = latest.with_untracked(|s| {
+                                s.as_ref()
+                                    .map(|s| s.services.iter().map(|x| x.name.clone()).filter(|n| *n != me).collect())
+                                    .unwrap_or_default()
+                            });
+                            let condition_now = row.condition.get_untracked();
+                            view! {
+                                <div class="editor__row editor__row--after">
+                                    <select
+                                        class="field__input field__input--plain"
+                                        aria-label="Service to wait for"
+                                        prop:value=move || row.service.get()
+                                        on:change=move |ev| {
+                                            row.service.set(event_target_value(&ev));
+                                            touch();
+                                        }
+                                    >
+                                        {others
+                                            .into_iter()
+                                            .map(|n| {
+                                                let picked = n == current;
+                                                view! { <option value=n.clone() selected=picked>{n.clone()}</option> }
+                                            })
+                                            .collect_view()}
+                                    </select>
+                                    <select
+                                        class="field__input field__input--plain"
+                                        aria-label="Wait until it"
+                                        prop:value=move || row.condition.get().key()
+                                        on:change=move |ev| {
+                                            let picked = event_target_value(&ev);
+                                            if let Some(c) = StartCondition::ALL.into_iter().find(|c| c.key() == picked) {
+                                                row.condition.set(c);
+                                                touch();
+                                            }
+                                        }
+                                    >
+                                        {StartCondition::ALL
+                                            .into_iter()
+                                            .map(|c| view! { <option value=c.key() selected=c == condition_now>{c.label()}</option> })
+                                            .collect_view()}
+                                    </select>
+                                    <button
+                                        type="button"
+                                        class="icon-btn"
+                                        aria-label="Remove"
+                                        on:click=move |_| {
+                                            after.update(|rows| rows.retain(|r| r.id != row.id));
+                                            touch();
+                                        }
+                                    >
+                                        <Ico icon=icondata::LuTrash2 />
+                                    </button>
+                                </div>
+                            }
+                        }
+                    </For>
+                    <button
+                        type="button"
+                        class="tool-btn"
+                        disabled={move || latest.with(|s| s.as_ref().is_none_or(|s| s.services.len() < 2))}
+                        on:click=add_after
+                    >
+                        <Ico icon=icondata::LuPlus />
+                        "Wait for a service"
+                    </button>
+                    <span class="field__hint">
+                        "This service starts only once those reach that point. Use finished successfully for a Runs once helper. Is healthy only works if that image has a health check."
+                    </span>
+                </div>
+
+                <div class="field inspector__command">
+                    <span class="field__label">"NETWORKS"</span>
+                    <div class="check-list">
+                        {move || {
+                            let mut all = vec![DEFAULT_NETWORK.to_string()];
+                            all.extend(latest.with(|s| s.as_ref().map(|s| s.networks.iter().map(|n| n.name.clone()).collect::<Vec<_>>()).unwrap_or_default()));
+                            all.into_iter()
+                                .map(|n| {
+                                    let for_checked = n.clone();
+                                    let for_change = n.clone();
+                                    view! {
+                                        <label class="check">
+                                            <input
+                                                type="checkbox"
+                                                prop:checked=move || networks.with(|l| l.contains(&for_checked))
+                                                on:change=move |ev| {
+                                                    let on = event_target_checked(&ev);
+                                                    networks.update(|l| {
+                                                        l.retain(|x| *x != for_change);
+                                                        if on {
+                                                            l.push(for_change.clone());
+                                                        }
+                                                    });
+                                                    touch();
+                                                }
+                                            />
+                                            <span>{n}</span>
+                                        </label>
+                                    }
+                                })
+                                .collect_view()
+                        }}
+                    </div>
+                    <span class="field__hint">
+                        "default is the stack's own network. Services reach each other by name only on a network they share."
+                    </span>
+                </div>
                 <Show when=move || active.get() && running.get() && tab.get() == Tab::General>
                     {move || view! { <StatsStrip container=container_name.get() /> }}
                 </Show>
@@ -445,7 +671,7 @@ pub fn ServiceInspector(
                     "The first box is the port your app listens on inside its container. Then choose who may reach it."
                 </p>
                 <For each=move || ports.get() key=|r| r.id let:row>
-                    <div class="editor__port">
+                    <div class="editor__port" class:is-debug=move || row.public.get()>
                     <div class="editor__row editor__row--port">
                         <input
                             class="field__input field__input--plain"
@@ -462,18 +688,29 @@ pub fn ServiceInspector(
                         <select
                             class="field__input field__input--plain"
                             aria-label="Where this port is reachable"
-                            prop:value=move || if row.published.get() { "server" } else { "stack" }
+                            prop:value=move || {
+                                if row.public.get() {
+                                    "debug"
+                                } else if row.published.get() {
+                                    "server"
+                                } else {
+                                    "stack"
+                                }
+                            }
                             on:change=move |ev| {
-                                row.published.set(event_target_value(&ev) == "server");
+                                let picked = event_target_value(&ev);
+                                row.published.set(picked != "stack");
+                                row.public.set(picked == "debug");
                                 touch();
                             }
                         >
                             <option value="stack">"Only inside this stack"</option>
                             <option value="server">"Also on the server"</option>
+                            <option value="debug">"Debug: open on all networks"</option>
                         </select>
                         <Show when=move || row.published.get()>
                             <span class="editor__host">
-                                <span class="editor__host-ip">"127.0.0.1:"</span>
+                                <span class="editor__host-ip">{move || if row.public.get() { "0.0.0.0:" } else { "127.0.0.1:" }}</span>
                                 <input
                                     class="field__input field__input--plain"
                                     type="text"
@@ -508,6 +745,7 @@ pub fn ServiceInspector(
 
             <div class="inspector__body" class:is-hidden=move || tab.get() != Tab::Storage>
                 <p class="inspector__hint">"Each storage is a named volume, kept across restarts and redeploys. A new volume belongs to root unless the image already has that folder, so a program running as another user may not be able to write to it. Then set Run as to 0 in General."</p>
+                <span class="field__label">"OWN STORAGE"</span>
                 <For each=move || volumes.get() key=|r| r.id let:row>
                     <div class="editor__row editor__row--volume">
                         <input
@@ -546,6 +784,86 @@ pub fn ServiceInspector(
                     </div>
                 </For>
                 <button type="button" class="tool-btn" on:click=add_volume><Ico icon=icondata::LuPlus />"Add storage"</button>
+
+                <span class="field__label inspector__section">"SHARED STORAGE"</span>
+                {move || {
+                    latest
+                        .with(|s| s.as_ref().is_some_and(|s| s.storages.is_empty()))
+                        .then(|| view! {
+                            <p class="inspector__hint">"This stack has no shared storage yet. Add one under STORAGE in the list on the left, then mount it here."</p>
+                        })
+                }}
+                <For each=move || mounts.get() key=|r| r.id let:row>
+                    {
+                        let current = row.storage.get_untracked();
+                        let storages: Vec<String> = latest.with_untracked(|s| {
+                            s.as_ref().map(|s| s.storages.iter().map(|x| x.name.clone()).collect()).unwrap_or_default()
+                        });
+                        view! {
+                            <div class="editor__row editor__row--mount">
+                                <select
+                                    class="field__input field__input--plain"
+                                    aria-label="Shared storage"
+                                    prop:value=move || row.storage.get()
+                                    on:change=move |ev| {
+                                        row.storage.set(event_target_value(&ev));
+                                        touch();
+                                    }
+                                >
+                                    {storages
+                                        .into_iter()
+                                        .map(|n| {
+                                            let picked = n == current;
+                                            view! { <option value=n.clone() selected=picked>{n.clone()}</option> }
+                                        })
+                                        .collect_view()}
+                                </select>
+                                <input
+                                    class="field__input field__input--plain"
+                                    type="text"
+                                    placeholder="/path/in/container"
+                                    aria-label="Path inside the container"
+                                    prop:value=move || row.path.get()
+                                    on:input=move |ev| {
+                                        row.path.set(event_target_value(&ev));
+                                        touch();
+                                    }
+                                />
+                                <label class="check">
+                                    <input
+                                        type="checkbox"
+                                        prop:checked=move || row.read_only.get()
+                                        on:change=move |ev| {
+                                            row.read_only.set(event_target_checked(&ev));
+                                            touch();
+                                        }
+                                    />
+                                    <span>"read-only"</span>
+                                </label>
+                                <button
+                                    type="button"
+                                    class="icon-btn"
+                                    aria-label="Stop using this storage"
+                                    on:click=move |_| {
+                                        mounts.update(|rows| rows.retain(|r| r.id != row.id));
+                                        touch();
+                                    }
+                                >
+                                    <Ico icon=icondata::LuTrash2 />
+                                </button>
+                            </div>
+                        }
+                    }
+                </For>
+                <button
+                    type="button"
+                    class="tool-btn"
+                    disabled={move || latest.with(|s| s.as_ref().is_none_or(|s| s.storages.is_empty()))}
+                    on:click=add_mount
+                >
+                    <Ico icon=icondata::LuPlus />
+                    "Use shared storage"
+                </button>
             </div>
 
             <div class="inspector__body" class:is-hidden=move || tab.get() != Tab::Env>
@@ -759,6 +1077,11 @@ fn explain_port(stack: &str, service: &str, row: PortRow) -> String {
     }
     let host = row.host.get().trim().to_string();
     let host = if host.is_empty() { "<port>".to_string() } else { host };
+    if row.public.get() {
+        return format!(
+            "Debug port: anyone who can reach this server on port {host} can connect, so every device on your LAN, and the internet too if your router forwards it. Switch it back when you're done; Needs you lists it while it's open."
+        );
+    }
     format!(
         "Also on the server at 127.0.0.1:{host}, which only the server itself can reach: open it from your PC with an SSH tunnel, or later through Cloudflare. Your LAN and the internet still can't. Inside the stack it stays {service}:{port}."
     )

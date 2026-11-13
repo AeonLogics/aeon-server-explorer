@@ -5,6 +5,10 @@ use surrealdb::types::SurrealValue;
 pub const STANDALONE: &str = "(standalone)";
 pub const STANDALONE_SLUG: &str = "_standalone";
 
+// Marks a helper that runs once and stops; finishing with exit code 0 is its healthy state.
+pub const LABEL_RUN_ONCE: &str = "dev.aeonlogics.explorer.run-once";
+pub const FINISHED: &str = "Finished";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Health {
     Ok,
@@ -76,6 +80,13 @@ pub struct ServiceCard {
     pub health_label: String,
     pub ports: Vec<PortInfo>,
     pub networks: Vec<String>,
+}
+
+impl ServiceCard {
+    // Running, or a run-once helper that finished without an error.
+    pub fn is_settled(&self) -> bool {
+        self.state == "running" || self.health_label == FINISHED
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

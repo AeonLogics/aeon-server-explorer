@@ -103,13 +103,14 @@ impl Stacks {
             .filter_map(|c| {
                 let service = c.labels.as_ref()?.get(LABEL_SERVICE)?.clone();
                 let card = container_card(c);
+                let running = card.is_settled();
                 Some(ServiceStatus {
                     service,
                     container: card.container_name,
                     health: card.health,
                     health_label: card.health_label,
                     status_text: card.status_text,
-                    running: card.state == "running",
+                    running,
                 })
             })
             .collect();
@@ -141,7 +142,7 @@ impl Stacks {
         std::fs::create_dir_all(&dir).map_err(|e| failed(format!("Couldn't create {}: {e}", dir.display())))?;
         let meta = Meta {
             version: 1,
-            spec: StackSpec { name: name.to_string(), services: Vec::new() },
+            spec: StackSpec { name: name.to_string(), services: Vec::new(), storages: Vec::new(), networks: Vec::new() },
             applied: None,
             last_apply: None,
         };

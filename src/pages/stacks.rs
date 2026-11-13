@@ -3,7 +3,10 @@ use leptos_router::hooks::{use_location, use_navigate};
 use leptos_router::NavigateOptions;
 use std::collections::HashMap;
 
-use shared::stack::{check_spec, valid_name, ServiceSpec, StackSpec, StackState, StackSummary, StackView};
+use shared::stack::{
+    check_spec, valid_name, NetworkSpec, ServiceSpec, StackSpec, StackState, StackSummary, StackView, StorageSpec,
+    DEFAULT_NETWORK,
+};
 
 use super::common::DockerProblem;
 use super::service_editor::{Editor, ImageInput, ServiceInspector};
@@ -142,8 +145,12 @@ fn StackTable(list: Vec<StackSummary>) -> impl IntoView {
     }
 }
 
-// Marks "Add service" in the selection, since no service can have this name.
+// Selection keys. Service names can't contain ':' or '+', so these never clash with one.
 const NEW: &str = "+new";
+const ADD_STORAGE: &str = "+storage";
+const ADD_NETWORK: &str = "+network";
+const STORAGE: &str = "storage:";
+const NETWORK: &str = "network:";
 
 // A save started from the changes bar: which services it carried, and whether to deploy after.
 #[derive(Clone)]
@@ -236,16 +243,28 @@ pub fn StackPage() -> impl IntoView {
         })
     });
 
+    let storage_names = Memo::new(move |_| {
+        spec.with(|s| s.as_ref().map(|s| s.storages.iter().map(|x| x.name.clone()).collect::<Vec<_>>()).unwrap_or_default())
+    });
+    let network_names = Memo::new(move |_| {
+        spec.with(|s| s.as_ref().map(|s| s.networks.iter().map(|x| x.name.clone()).collect::<Vec<_>>()).unwrap_or_default())
+    });
+
     let selected = RwSignal::new(None::<String>);
     Effect::new(move |_| {
         let names = service_names.get();
+        let storages = storage_names.get();
+        let networks = network_names.get();
         if spec.with(Option::is_none) {
             return;
         }
         let current = selected.get_untracked();
-        let still_there = current
-            .as_ref()
-            .is_some_and(|c| c == NEW || names.contains(c));
+        let still_there = current.as_ref().is_some_and(|c| {
+            [NEW, ADD_STORAGE, ADD_NETWORK].contains(&c.as_str())
+                || names.contains(c)
+                || c.strip_prefix(STORAGE).is_some_and(|s| storages.iter().any(|x| x == s))
+                || c.strip_prefix(NETWORK).is_some_and(|n| n == DEFAULT_NETWORK || networks.iter().any(|x| x == n))
+        });
         if !still_there {
             selected.set(Some(
                 names.first().cloned().unwrap_or_else(|| NEW.to_string()),
@@ -353,6 +372,15 @@ pub fn StackPage() -> impl IntoView {
     };
 
     let on_added = Callback::new(move |service: String| selected.set(Some(service)));
+    // After adding or removing a storage or network: open that key, or the first service.
+    let on_opened = Callback::new(move |key: String| {
+        let next = if key.is_empty() {
+            service_names.get_untracked().first().cloned().unwrap_or_else(|| NEW.to_string())
+        } else {
+            key
+        };
+        selected.set(Some(next));
+    });
 
     view! {
         <div class="page page--stack">
@@ -445,12 +473,112 @@ pub fn StackPage() -> impl IntoView {
                             <Ico icon=icondata::LuPlus />
                             "Add service"
                         </button>
+
+                        <span class="workbench__label workbench__label--group">"STORAGE"</span>
+                        <For each=move || storage_names.get() key=|n| n.clone() let:storage>
+                            {
+                                let key = format!("{STORAGE}{storage}");
+                                let pick = key.clone();
+                                let for_count = storage.clone();
+                                let users = move || {
+                                    let n = spec.with(|s| {
+                                        s.as_ref().map(|s| s.services.iter().filter(|x| x.mounts.iter().any(|m| m.storage == for_count)).count()).unwrap_or(0)
+                                    });
+                                    match n {
+                                        0 => "not used yet".to_string(),
+                                        1 => "used by 1 service".to_string(),
+                                        n => format!("used by {n} services"),
+                                    }
+                                };
+                                view! {
+                                    <button
+                                        type="button"
+                                        class="workbench__item"
+                                        class:is-active=move || selected.get().as_deref() == Some(key.as_str())
+                                        on:click=move |_| selected.set(Some(pick.clone()))
+                                    >
+                                        <span class="workbench__name"><Ico icon=icondata::LuDatabase />{storage.clone()}</span>
+                                        <span class="workbench__meta">{users}</span>
+                                    </button>
+                                }
+                            }
+                        </For>
+                        <button
+                            type="button"
+                            class="workbench__item workbench__item--add"
+                            class:is-active=move || selected.get().as_deref() == Some(ADD_STORAGE)
+                            on:click=move |_| selected.set(Some(ADD_STORAGE.to_string()))
+                        >
+                            <Ico icon=icondata::LuPlus />
+                            "Add storage"
+                        </button>
+
+                        <span class="workbench__label workbench__label--group">"NETWORKS"</span>
+                        <For
+                            each=move || {
+                                let mut all = vec![DEFAULT_NETWORK.to_string()];
+                                all.extend(network_names.get());
+                                all
+                            }
+                            key=|n| n.clone()
+                            let:network
+                        >
+                            {
+                                let key = format!("{NETWORK}{network}");
+                                let pick = key.clone();
+                                let for_count = network.clone();
+                                let members = move || {
+                                    let n = spec.with(|s| {
+                                        s.as_ref().map(|s| s.services.iter().filter(|x| x.on_networks().contains(&for_count)).count()).unwrap_or(0)
+                                    });
+                                    match n {
+                                        0 => "no services".to_string(),
+                                        1 => "1 service".to_string(),
+                                        n => format!("{n} services"),
+                                    }
+                                };
+                                view! {
+                                    <button
+                                        type="button"
+                                        class="workbench__item"
+                                        class:is-active=move || selected.get().as_deref() == Some(key.as_str())
+                                        on:click=move |_| selected.set(Some(pick.clone()))
+                                    >
+                                        <span class="workbench__name"><Ico icon=icondata::LuNetwork />{network.clone()}</span>
+                                        <span class="workbench__meta">{members}</span>
+                                    </button>
+                                }
+                            }
+                        </For>
+                        <button
+                            type="button"
+                            class="workbench__item workbench__item--add"
+                            class:is-active=move || selected.get().as_deref() == Some(ADD_NETWORK)
+                            on:click=move |_| selected.set(Some(ADD_NETWORK.to_string()))
+                        >
+                            <Ico icon=icondata::LuPlus />
+                            "Add network"
+                        </button>
                     </nav>
 
                     <section class="workbench__main">
                         <Show when=move || selected.get().as_deref() == Some(NEW)>
                             <AddService spec save images on_added />
                         </Show>
+                        <Show when=move || selected.get().as_deref() == Some(ADD_STORAGE)>
+                            <AddNamed kind=Kind::Storage spec save on_added=on_opened />
+                        </Show>
+                        <Show when=move || selected.get().as_deref() == Some(ADD_NETWORK)>
+                            <AddNamed kind=Kind::Network spec save on_added=on_opened />
+                        </Show>
+                        {move || {
+                            let current = selected.get()?;
+                            if let Some(storage) = current.strip_prefix(STORAGE) {
+                                return Some(view! { <StorageInspector name=storage.to_string() stack=name spec save on_removed=on_opened /> }.into_any());
+                            }
+                            let network = current.strip_prefix(NETWORK)?;
+                            Some(view! { <NetworkInspector name=network.to_string() spec save on_removed=on_opened /> }.into_any())
+                        }}
                         <For
                             each=move || service_names.get()
                             key=|n| n.clone()
@@ -636,16 +764,10 @@ fn AddService(
         let Some(mut next) = spec.get_untracked() else {
             return;
         };
-        next.services.push(ServiceSpec {
-            name: name.get_untracked().trim().to_string(),
-            image: image.get_untracked().trim().to_string(),
-            restart: Default::default(),
-            ports: Vec::new(),
-            volumes: Vec::new(),
-            env: Vec::new(),
-            command: Vec::new(),
-            user: None,
-        });
+        next.services.push(ServiceSpec::new(
+            name.get_untracked().trim().to_string(),
+            image.get_untracked().trim().to_string(),
+        ));
         match check_spec(&next) {
             Err(p) => problem.set(Some(p.0)),
             Ok(()) => {
@@ -692,5 +814,332 @@ fn AddService(
                 {move || problem.get().unwrap_or_else(|| "Only images already on this server are listed. Ports, storage and env come right after.".into())}
             </p>
         </form>
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Kind {
+    Storage,
+    Network,
+}
+
+impl Kind {
+    fn noun(self) -> &'static str {
+        match self {
+            Kind::Storage => "storage",
+            Kind::Network => "network",
+        }
+    }
+
+    fn key(self, name: &str) -> String {
+        match self {
+            Kind::Storage => format!("{STORAGE}{name}"),
+            Kind::Network => format!("{NETWORK}{name}"),
+        }
+    }
+}
+
+// Creates a stack storage or network. Services attach to it from their own tabs.
+#[component]
+fn AddNamed(
+    kind: Kind,
+    spec: Memo<Option<StackSpec>>,
+    save: ServerAction<SaveStack>,
+    on_added: Callback<String>,
+) -> impl IntoView {
+    let name = RwSignal::new(String::new());
+    let problem = RwSignal::new(None::<String>);
+    let adding = RwSignal::new(None::<String>);
+
+    Effect::new(move |_| {
+        let result = save.value().get();
+        let Some(added) = adding.get_untracked() else { return };
+        match result {
+            Some(Ok(())) => {
+                adding.set(None);
+                on_added.run(kind.key(&added));
+            }
+            Some(Err(e)) => {
+                adding.set(None);
+                problem.set(Some(e.to_string()));
+            }
+            None => {}
+        }
+    });
+
+    let on_submit = move |ev: leptos::ev::SubmitEvent| {
+        ev.prevent_default();
+        let Some(mut next) = spec.get_untracked() else { return };
+        let typed = name.get_untracked().trim().to_string();
+        match kind {
+            Kind::Storage => next.storages.push(StorageSpec { name: typed.clone() }),
+            Kind::Network => next.networks.push(NetworkSpec { name: typed.clone() }),
+        }
+        match check_spec(&next) {
+            Err(p) => problem.set(Some(p.0)),
+            Ok(()) => {
+                problem.set(None);
+                adding.set(Some(typed));
+                name.set(String::new());
+                save.dispatch(SaveStack { spec: next, changes: Vec::new() });
+            }
+        }
+    };
+
+    let (title, placeholder, hint) = match kind {
+        Kind::Storage => (
+            "Add a shared storage",
+            "data",
+            "A named volume that belongs to the stack. Any service can then mount it from its Storage tab, read-write or read-only.",
+        ),
+        Kind::Network => (
+            "Add a network",
+            "backend",
+            "Services on the same network reach each other by name. Use extra networks to keep services apart; choose them in each service's General tab.",
+        ),
+    };
+
+    view! {
+        <form class="add-service" on:submit=on_submit>
+            <h2 class="inspector__title">{title}</h2>
+            <label class="field create__field">
+                <span class="field__label">"NAME"</span>
+                <input
+                    class="field__input field__input--plain"
+                    type="text"
+                    placeholder=placeholder
+                    maxlength="40"
+                    autocomplete="off"
+                    spellcheck="false"
+                    prop:value=move || name.get()
+                    on:input=move |ev| name.set(event_target_value(&ev).to_lowercase())
+                />
+            </label>
+            <button
+                class="btn btn--secondary"
+                type="submit"
+                disabled=move || name.get().trim().is_empty() || save.pending().get()
+            >
+                <Ico icon=icondata::LuPlus />
+                {format!("Add {}", kind.noun())}
+            </button>
+            <p class="create__hint">{move || problem.get().unwrap_or_else(|| hint.into())}</p>
+        </form>
+    }
+}
+
+#[component]
+fn StorageInspector(
+    name: String,
+    stack: Memo<String>,
+    spec: Memo<Option<StackSpec>>,
+    save: ServerAction<SaveStack>,
+    on_removed: Callback<String>,
+) -> impl IntoView {
+    let for_users = name.clone();
+    let users = Memo::new(move |_| {
+        spec.with(|s| {
+            s.as_ref()
+                .map(|s| {
+                    s.services
+                        .iter()
+                        .filter_map(|x| x.mounts.iter().find(|m| m.storage == for_users).map(|m| (x.name.clone(), m.path.clone(), m.read_only)))
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_default()
+        })
+    });
+    let problem = RwSignal::new(None::<String>);
+    let removing = RwSignal::new(false);
+    Effect::new(move |_| {
+        let result = save.value().get();
+        if !removing.get_untracked() {
+            return;
+        }
+        match result {
+            Some(Ok(())) => {
+                removing.set(false);
+                on_removed.run(String::new());
+            }
+            Some(Err(e)) => {
+                removing.set(false);
+                problem.set(Some(e.to_string()));
+            }
+            None => {}
+        }
+    });
+    let for_remove = name.clone();
+    let remove = move |_| {
+        let Some(mut next) = spec.get_untracked() else { return };
+        next.storages.retain(|s| s.name != for_remove);
+        removing.set(true);
+        save.dispatch(SaveStack { spec: next, changes: Vec::new() });
+    };
+    let volume = {
+        let name = name.clone();
+        move || format!("{}_{}", stack.get(), name)
+    };
+
+    view! {
+        <div class="inspector">
+            <header class="inspector__head">
+                <div class="inspector__titles">
+                    <h2 class="inspector__title">{name.clone()}</h2>
+                    <span class="inspector__image">{move || format!("shared storage · volume {}", volume())}</span>
+                </div>
+            </header>
+            {move || problem.get().map(|p| view! { <p class="inspector__problem" role="alert">{p}</p> })}
+            <div class="inspector__body">
+                <span class="field__label">"USED BY"</span>
+                {move || {
+                    let list = users.get();
+                    if list.is_empty() {
+                        return view! {
+                            <p class="inspector__hint">
+                                "No service uses it yet. Open a service, go to Storage, and add it under Shared storage."
+                            </p>
+                        }
+                        .into_any();
+                    }
+                    view! {
+                        <ul class="resource-users">
+                            {list
+                                .into_iter()
+                                .map(|(service, path, read_only)| {
+                                    view! {
+                                        <li>
+                                            <strong>{service}</strong>
+                                            <code>{path}</code>
+                                            <span class="resource-users__mode" class:is-calm=read_only>
+                                                {if read_only { "read-only" } else { "read-write" }}
+                                            </span>
+                                        </li>
+                                    }
+                                })
+                                .collect_view()}
+                        </ul>
+                    }
+                    .into_any()
+                }}
+                <p class="inspector__hint">
+                    "Like any new volume it starts empty and owned by root. If a service that runs as another user can't write to it, set Run as to 0, or add a small Runs once helper that sets the owner, and let that service start after it."
+                </p>
+                <div class="inspector__danger">
+                    <div>
+                        <strong>"Remove this storage"</strong>
+                        <p>"Only when no service uses it. The volume and its data stay on the server until you delete them with Docker."</p>
+                    </div>
+                    <button
+                        type="button"
+                        class="act act--danger"
+                        disabled={move || !users.with(Vec::is_empty) || save.pending().get()}
+                        on:click=remove
+                    >
+                        <Ico icon=icondata::LuTrash2 />
+                        "Remove"
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+}
+
+#[component]
+fn NetworkInspector(
+    name: String,
+    spec: Memo<Option<StackSpec>>,
+    save: ServerAction<SaveStack>,
+    on_removed: Callback<String>,
+) -> impl IntoView {
+    let is_default = name == DEFAULT_NETWORK;
+    let for_members = name.clone();
+    let members = Memo::new(move |_| {
+        spec.with(|s| {
+            s.as_ref()
+                .map(|s| {
+                    s.services
+                        .iter()
+                        .filter(|x| x.on_networks().contains(&for_members))
+                        .map(|x| x.name.clone())
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_default()
+        })
+    });
+    let problem = RwSignal::new(None::<String>);
+    let removing = RwSignal::new(false);
+    Effect::new(move |_| {
+        let result = save.value().get();
+        if !removing.get_untracked() {
+            return;
+        }
+        match result {
+            Some(Ok(())) => {
+                removing.set(false);
+                on_removed.run(String::new());
+            }
+            Some(Err(e)) => {
+                removing.set(false);
+                problem.set(Some(e.to_string()));
+            }
+            None => {}
+        }
+    });
+    let for_remove = name.clone();
+    let remove = move |_| {
+        let Some(mut next) = spec.get_untracked() else { return };
+        next.networks.retain(|n| n.name != for_remove);
+        removing.set(true);
+        save.dispatch(SaveStack { spec: next, changes: Vec::new() });
+    };
+
+    view! {
+        <div class="inspector">
+            <header class="inspector__head">
+                <div class="inspector__titles">
+                    <h2 class="inspector__title">{name.clone()}</h2>
+                    <span class="inspector__image">
+                        {if is_default { "the stack's own network" } else { "extra network" }}
+                    </span>
+                </div>
+            </header>
+            {move || problem.get().map(|p| view! { <p class="inspector__problem" role="alert">{p}</p> })}
+            <div class="inspector__body">
+                <span class="field__label">"SERVICES ON IT"</span>
+                {move || {
+                    let list = members.get();
+                    if list.is_empty() {
+                        view! { <p class="inspector__hint">"No service is on this network."</p> }.into_any()
+                    } else {
+                        view! {
+                            <ul class="resource-users">
+                                {list.into_iter().map(|s| view! { <li><strong>{s}</strong></li> }).collect_view()}
+                            </ul>
+                        }
+                        .into_any()
+                    }
+                }}
+                <p class="inspector__hint">
+                    "Services on the same network reach each other by name, like db:5432. A service joins or leaves networks in its General tab."
+                </p>
+                {(!is_default).then(|| view! {
+                    <div class="inspector__danger">
+                        <div>
+                            <strong>"Remove this network"</strong>
+                            <p>"Only when no service is on it."</p>
+                        </div>
+                        <button
+                            type="button"
+                            class="act act--danger"
+                            disabled={move || !members.with(Vec::is_empty) || save.pending().get()}
+                            on:click=remove.clone()
+                        >
+                            <Ico icon=icondata::LuTrash2 />
+                            "Remove"
+                        </button>
+                    </div>
+                })}
+            </div>
+        </div>
     }
 }

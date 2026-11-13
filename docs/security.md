@@ -48,7 +48,10 @@ that mounts the whole disk. Everything below follows from that.
 ## Managed stacks
 
 - Generated from a form with no option for privileged mode, host networking, devices,
-  capabilities, bind mounts or `docker.sock`. Ports are only published on `127.0.0.1`.
+  capabilities, bind mounts or `docker.sock`. Ports are published on `127.0.0.1`; the only
+  exception is a port you explicitly mark as a debug port (`0.0.0.0`), which stays listed in
+  Needs you while open and is named in the audit log when saved. The explorer itself never
+  listens beyond loopback.
 - Env values live in files with mode 0600, are never part of page data, and are only sent to
   the browser when you reveal them, which is audited.
 - Values in the command line are visible in `compose.yml` and `docker inspect`, so secrets

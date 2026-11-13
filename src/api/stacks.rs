@@ -53,12 +53,19 @@ pub async fn save_stack(spec: StackSpec, changes: Vec<EnvChange>) -> Result<(), 
     let state = AppState::get()?;
     let name = spec.name.clone();
     let changed: Vec<String> = changes.iter().map(|c| format!("{}.{}", c.service, c.name)).collect();
+    let debug: Vec<String> = spec
+        .services
+        .iter()
+        .flat_map(|s| s.ports.iter().filter(|p| p.public).filter_map(move |p| p.host.map(|h| format!("{} 0.0.0.0:{h}", s.name))))
+        .collect();
     let result = state.stacks.save(&state.docker, spec, changes).await;
-    let target = if changed.is_empty() {
-        name
-    } else {
-        format!("{name} (set {})", changed.join(", "))
-    };
+    let mut target = name;
+    if !changed.is_empty() {
+        target.push_str(&format!(" (set {})", changed.join(", ")));
+    }
+    if !debug.is_empty() {
+        target.push_str(&format!(" (debug ports open: {})", debug.join(", ")));
+    }
     audit("stack.save", admin.email, &target, &result).await;
     result
 }

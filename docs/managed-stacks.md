@@ -26,12 +26,50 @@ Files are written to a temporary name and then renamed, so a crash never leaves 
 | Restart | unless stopped (default), always, on failure, never | `restart:` |
 | Command | optional; arguments written like on the command line | `command: ["start", "--log", "info"]` |
 | Run as | optional; a user name or ID, like `0` or `1000:1000` | `user: "0"` |
-| Ports | the port the app listens on; reachable inside the stack, or also on `127.0.0.1:<port>` | `expose:` or `ports: ["127.0.0.1:host:container"]` |
-| Storage | a name and an absolute path inside the container | a named volume `<stack>_<service>-<name>` |
+| Ports | the port the app listens on; reachable inside the stack, also on `127.0.0.1:<port>`, or as a debug port on `0.0.0.0:<port>` | `expose:` or `ports: ["127.0.0.1:host:container"]` |
+| Own storage | a name and an absolute path inside the container | a named volume `<stack>_<service>-<name>` |
+| Shared storage | one of the stack's storages, a path, and read-only or not | `volumes: ["<storage>:<path>:ro"]` |
+| Networks | `default` and any of the stack's extra networks | `networks: [...]` (left out when it's only `default`) |
+| Start after | other services, each with *is running*, *is healthy* or *finished successfully* | `depends_on: {svc: {condition: ...}}` |
+| Runs once | a helper that runs to the end and stays stopped | `restart: "no"` and a run-once label |
 | Env | names `A-Z a-z 0-9 _`; values in the env file | `env_file: {path, format: raw}` |
 
 There is no setting for privileged mode, host networking, devices, capabilities or bind mounts,
-and ports are only ever published on `127.0.0.1`. The generated file can't contain them.
+so the generated file can't contain them. Ports are published on `127.0.0.1`, unless you
+explicitly pick a debug port.
+
+## Shared storage, networks and start order
+
+Besides services, a stack has **storages** and **networks**, each in its own group in the list.
+
+- **A shared storage** is a named volume that belongs to the stack (`<stack>_<name>`). Services
+  mount it from their **Storage** tab, read-write or read-only, so a helper or a backup service
+  can work on the same data. A storage that any service uses can't be removed, and removing
+  one never deletes the volume's data.
+- **Networks.** Every stack has `default`, and all services are on it unless you change that in
+  their **General** tab. Extra networks keep services apart: services only reach each other by
+  name on a network they share.
+- **Start after** makes a service wait for others: until they run, until their health check
+  passes, or until they finished successfully. Loops (A waits for B, B waits for A) are refused.
+- **Runs once** is for setup helpers. When one exits with code 0, it shows as **Finished**, not as
+  stopped, and isn't listed in Needs you.
+
+A common use: a new volume belongs to root, and some images (SurrealDB, for example) run as
+another user. A **Runs once** helper fixes the owner once, and the database starts after it:
+
+```
+storage  db-data
+db-init  alpine:3, Runs once, command: chown -R 65532:65532 /data,  db-data at /data
+db       surrealdb/surrealdb, start after db-init (finished successfully), db-data at /data
+```
+
+## Debug ports
+
+**Debug: open on all networks** publishes a port on `0.0.0.0`, so every network the server is on
+can reach it: your LAN, and the internet if your router forwards the port. It's meant for short
+debugging sessions: the row turns amber, Needs you lists it as long as it's open, and saving it is
+recorded in the audit log. To reach a port from your own PC, an SSH tunnel
+(`ssh -L 6390:localhost:6390 you@server`) works without opening anything.
 
 Env values are read with `format: raw`, so a `$` in a value is taken literally. In the command,
 each part is escaped and `$` is doubled for the same reason.
