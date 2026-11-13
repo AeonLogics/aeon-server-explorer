@@ -116,6 +116,10 @@ pub fn ServiceInspector(
         next_id.get_value()
     };
     let touch = move || dirty.set(true);
+    // Rows get their signals when loading, after a save, or on Add. Those must belong to this
+    // inspector, not to whatever ran the code (a click, the page's save watcher), or Leptos
+    // disposes them while the rows still use them.
+    let owner = StoredValue::new(Owner::current());
 
     let image = RwSignal::new(String::new());
     let restart = RwSignal::new(Restart::default());
@@ -131,7 +135,7 @@ pub fn ServiceInspector(
     let env_text = RwSignal::new(None::<String>);
     let env_loading = RwSignal::new(false);
 
-    let load = move |s: &ServiceSpec| {
+    let load_rows = move |s: &ServiceSpec| {
         image.set(s.image.clone());
         restart.set(s.restart);
         command.set(join_command(&s.command));
@@ -188,6 +192,7 @@ pub fn ServiceInspector(
         );
         env_text.set(None);
     };
+    let load = move |s: &ServiceSpec| within(owner, || load_rows(s));
     load(&initial);
 
     let stack_name = StoredValue::new(stack_name);
@@ -214,7 +219,7 @@ pub fn ServiceInspector(
         log_epoch.update(|e| *e += 1);
     });
 
-    let add_port = move |_| {
+    let add_port = move |_| within(owner, || {
         touch();
         ports.update(|rows| {
             rows.push(PortRow {
@@ -225,8 +230,8 @@ pub fn ServiceInspector(
                 host: RwSignal::new(String::new()),
             })
         })
-    };
-    let add_mount = move |_| {
+    });
+    let add_mount = move |_| within(owner, || {
         touch();
         let first = latest.with_untracked(|s| s.as_ref().and_then(|s| s.storages.first()).map(|x| x.name.clone()));
         mounts.update(|rows| {
@@ -237,8 +242,8 @@ pub fn ServiceInspector(
                 read_only: RwSignal::new(false),
             })
         })
-    };
-    let add_after = move |_| {
+    });
+    let add_after = move |_| within(owner, || {
         touch();
         let me = service_name.get_value();
         let first = latest.with_untracked(|s| {
@@ -247,12 +252,12 @@ pub fn ServiceInspector(
         after.update(|rows| {
             rows.push(AfterRow { id: new_id(), service: RwSignal::new(first.unwrap_or_default()), condition: RwSignal::new(StartCondition::Started) })
         })
-    };
-    let add_volume = move |_| {
+    });
+    let add_volume = move |_| within(owner, || {
         touch();
         volumes.update(|rows| rows.push(VolumeRow { id: new_id(), name: RwSignal::new(String::new()), path: RwSignal::new(String::new()) }))
-    };
-    let add_env = move |_| {
+    });
+    let add_env = move |_| within(owner, || {
         touch();
         env.update(|rows| {
             rows.push(EnvRow {
@@ -264,7 +269,7 @@ pub fn ServiceInspector(
                 shown: RwSignal::new(None),
             })
         })
-    };
+    });
 
     // Rows left completely empty are ignored, so an extra "Add" click is harmless.
     let build = move || -> Result<(ServiceSpec, Vec<EnvChange>), String> {
@@ -1061,6 +1066,13 @@ pub fn ImageInput(
                 }
             }}
         </Transition>
+    }
+}
+
+fn within(owner: StoredValue<Option<Owner>>, f: impl FnOnce()) {
+    match owner.get_value() {
+        Some(owner) => owner.with(f),
+        None => f(),
     }
 }
 

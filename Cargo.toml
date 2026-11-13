@@ -63,6 +63,7 @@ hydrate = [
     "dep:wasm-bindgen",
     "dep:send_wrapper",
     "dep:web-sys",
+    "dep:futures",
 ]
 ssr = [
     "dep:axum",

@@ -4,3 +4,4 @@ pub mod errors;
 pub mod images;
 pub mod inputs;
 pub mod stack;
+pub mod volumes;

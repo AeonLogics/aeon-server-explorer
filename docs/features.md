@@ -51,6 +51,18 @@ Stacks the app creates and owns. See [managed-stacks.md](managed-stacks.md) for 
 - **Last deploy:** the time and Docker's full output of the last deploy. A failure stays visible
   until the next deploy works, even after a refresh.
 
+## Storage files
+
+Click a storage in a stack's list to open its **Files**: browse folders with sizes and dates,
+open a file in the browser, download one file or the whole folder (`.tar`), upload files, make
+folders and delete. **Copy in from another volume** copies everything from any other volume on the
+server, keeping owners, without changing the source. Uploaded files and new folders get the owner of
+the folder they land in, so the app using the storage can read and replace them.
+
+Every step runs in a short-lived helper container (`alpine:3`) with only that volume mounted and no
+network; nothing touches `/var/lib/docker` directly. Uploads, deletes, new folders and copies are in
+the audit log. The storage has to be deployed once so Docker has created it.
+
 ## Images
 
 - **On this server:** every image with size, created date and how many containers use it.

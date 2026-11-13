@@ -3,6 +3,7 @@ pub mod auth;
 pub mod docker;
 pub mod images;
 pub mod stacks;
+pub mod volumes;
 
 #[cfg(feature = "ssr")]
 pub(crate) mod queries;

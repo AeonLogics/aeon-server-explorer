@@ -122,3 +122,120 @@ mod imp {
         None
     }
 }
+
+pub use files::{picked_files, send_file};
+
+// Several files from one picker, sent one after another (the storage browser).
+#[cfg(feature = "hydrate")]
+mod files {
+    use std::cell::RefCell;
+    use std::rc::Rc;
+
+    use futures::channel::oneshot;
+    use wasm_bindgen::{closure::Closure, JsCast};
+    use web_sys::{Event, File, HtmlInputElement, ProgressEvent, XmlHttpRequest};
+
+    pub struct PickedFile(File);
+
+    impl PickedFile {
+        pub fn name(&self) -> String {
+            self.0.name()
+        }
+    }
+
+    pub fn picked_files(ev: &leptos::ev::Event) -> Vec<PickedFile> {
+        let Some(input) = ev.target().and_then(|t| t.dyn_into::<HtmlInputElement>().ok()) else {
+            return Vec::new();
+        };
+        let mut out = Vec::new();
+        if let Some(list) = input.files() {
+            for i in 0..list.length() {
+                if let Some(file) = list.get(i) {
+                    out.push(PickedFile(file));
+                }
+            }
+        }
+        input.set_value("");
+        out
+    }
+
+    pub async fn send_file(
+        file: &PickedFile,
+        url: &str,
+        content_type: &str,
+        on_progress: impl Fn(f64, f64) + 'static,
+    ) -> Result<String, String> {
+        let xhr = XmlHttpRequest::new().map_err(|_| "The browser couldn't start the upload.".to_string())?;
+        xhr.open("POST", url).map_err(|_| "The browser couldn't start the upload.".to_string())?;
+        xhr.set_request_header("Content-Type", content_type).map_err(|_| "Bad upload header.".to_string())?;
+
+        let (tx, rx) = oneshot::channel::<Result<String, String>>();
+        let tx = Rc::new(RefCell::new(Some(tx)));
+
+        let progress = Closure::<dyn FnMut(ProgressEvent)>::new(move |e: ProgressEvent| on_progress(e.loaded(), e.total()));
+        if let Ok(upload) = xhr.upload() {
+            upload.set_onprogress(Some(progress.as_ref().unchecked_ref()));
+        }
+        let load = {
+            let (tx, xhr) = (tx.clone(), xhr.clone());
+            Closure::<dyn FnMut(Event)>::new(move |_: Event| {
+                let status = xhr.status().unwrap_or(0);
+                let text = xhr.response_text().ok().flatten().unwrap_or_default();
+                let result = match status {
+                    200 => Ok(text),
+                    401 => Err("Your session has ended. Sign in again.".to_string()),
+                    _ if text.trim().is_empty() => Err(format!("The server answered {status}.")),
+                    _ => Err(text),
+                };
+                if let Some(tx) = tx.borrow_mut().take() {
+                    let _ = tx.send(result);
+                }
+            })
+        };
+        xhr.set_onload(Some(load.as_ref().unchecked_ref()));
+        let error = {
+            let tx = tx.clone();
+            Closure::<dyn FnMut(Event)>::new(move |_: Event| {
+                if let Some(tx) = tx.borrow_mut().take() {
+                    let _ = tx.send(Err("The upload was cut off.".to_string()));
+                }
+            })
+        };
+        xhr.set_onerror(Some(error.as_ref().unchecked_ref()));
+
+        xhr.send_with_opt_blob(Some(&file.0)).map_err(|_| "The browser couldn't send the file.".to_string())?;
+        let result = rx.await.unwrap_or_else(|_| Err("The upload stopped.".to_string()));
+
+        if let Ok(upload) = xhr.upload() {
+            upload.set_onprogress(None);
+        }
+        xhr.set_onload(None);
+        xhr.set_onerror(None);
+        drop((progress, load, error));
+        result
+    }
+}
+
+#[cfg(not(feature = "hydrate"))]
+mod files {
+    pub struct PickedFile;
+
+    impl PickedFile {
+        pub fn name(&self) -> String {
+            String::new()
+        }
+    }
+
+    pub fn picked_files(_ev: &leptos::ev::Event) -> Vec<PickedFile> {
+        Vec::new()
+    }
+
+    pub async fn send_file(
+        _file: &PickedFile,
+        _url: &str,
+        _content_type: &str,
+        _on_progress: impl Fn(f64, f64) + 'static,
+    ) -> Result<String, String> {
+        Err(String::new())
+    }
+}

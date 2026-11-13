@@ -17,6 +17,8 @@ pub mod startup;
 pub mod state;
 #[cfg(feature = "ssr")]
 pub mod upload;
+#[cfg(feature = "ssr")]
+pub mod files;
 
 #[cfg(feature = "hydrate")]
 #[wasm_bindgen::prelude::wasm_bindgen]

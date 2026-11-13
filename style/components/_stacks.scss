@@ -869,3 +869,172 @@ textarea.env-file {
     }
   }
 }
+
+// ── Storage browser ─────────────────────────────────────────────────────────
+.files {
+  display: grid;
+  gap: space(3);
+  justify-self: stretch;
+
+  &__bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: space(3);
+  }
+
+  &__crumbs {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: space(1);
+    font-family: $font-mono;
+    font-size: $text-sm;
+  }
+
+  &__crumb {
+    padding: space(1) space(2);
+    border-radius: $radius;
+    color: $accent;
+
+    &:hover {
+      background: $sunken-2;
+    }
+
+    &:last-child {
+      color: $text;
+    }
+  }
+
+  &__sep {
+    color: $disabled;
+  }
+
+  &__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: space(2);
+  }
+
+  &__upload {
+    cursor: pointer;
+
+    &.is-disabled {
+      opacity: 0.5;
+      pointer-events: none;
+    }
+  }
+
+  &__new {
+    display: flex;
+    gap: space(2);
+
+    .field__input {
+      max-width: 18rem;
+    }
+  }
+
+  &__status {
+    color: $muted;
+    font-family: $font-mono;
+    font-size: $text-xs;
+  }
+
+  .flash {
+    margin-top: 0;
+  }
+
+  &__list {
+    display: grid;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border: 1px solid $line;
+    border-radius: $radius;
+  }
+
+  &__row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 6rem 9rem auto;
+    align-items: center;
+    gap: space(3);
+    min-height: 2.5rem;
+    padding: 0 space(2) 0 space(3);
+    font-size: $text-sm;
+
+    & + & {
+      border-top: 1px solid $line;
+    }
+
+    @include down(md) {
+      grid-template-columns: minmax(0, 1fr) auto;
+
+      .files__size,
+      .files__date {
+        display: none;
+      }
+    }
+  }
+
+  &__name {
+    display: inline-flex;
+    align-items: center;
+    gap: space(2);
+    min-width: 0;
+    color: $text;
+    text-align: left;
+    @include truncate;
+
+    .ico {
+      flex: none;
+      color: $faint;
+    }
+
+    &:hover {
+      color: $accent;
+    }
+  }
+
+  &__size,
+  &__date {
+    color: $faint;
+    font-family: $font-mono;
+    font-size: $text-xs;
+  }
+
+  &__size {
+    text-align: right;
+  }
+
+  &__row-actions {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: space(1);
+  }
+
+  &__copy {
+    display: grid;
+    gap: space(2);
+    margin-top: space(2);
+  }
+
+  &__copy-row {
+    display: flex;
+    gap: space(2);
+
+    .field__input {
+      max-width: 24rem;
+    }
+  }
+
+  &__confirm {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: space(2);
+    color: $warn;
+    font-size: $text-sm;
+  }
+}

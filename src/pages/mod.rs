@@ -10,6 +10,7 @@ mod service;
 mod service_editor;
 mod sidebar;
 mod stacks;
+mod volume_files;
 
 pub use audit::AuditPage;
 pub use common::NotFound;

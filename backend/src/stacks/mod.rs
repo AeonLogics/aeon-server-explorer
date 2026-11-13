@@ -74,6 +74,24 @@ impl Stacks {
         self.dir(name).is_ok_and(|d| d.join(META).is_file())
     }
 
+    // The Docker volume behind one of this stack's storages: a shared one by its name, or a
+    // service's own as `<service>-<name>`. Anything else is refused, so the browser can't name
+    // an arbitrary volume.
+    pub fn volume_of(&self, stack: &str, storage: &str) -> Result<String, DockerError> {
+        let meta = self.read_meta(stack)?;
+        let shared = meta.spec.storages.iter().any(|s| s.name == storage);
+        let own = meta
+            .spec
+            .services
+            .iter()
+            .any(|s| s.volumes.iter().any(|v| shared::stack::own_volume_key(&s.name, &v.name) == storage));
+        if shared || own {
+            Ok(format!("{stack}_{storage}"))
+        } else {
+            Err(DockerError::NotFound)
+        }
+    }
+
     pub async fn list(&self, docker: &Docker) -> Result<Vec<StackSummary>, DockerError> {
         let deployed = deployed_projects(docker).await?;
         let Ok(entries) = std::fs::read_dir(&self.root) else {

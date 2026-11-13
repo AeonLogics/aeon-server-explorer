@@ -59,7 +59,10 @@ pub(crate) async fn list(
         let filters = HashMap::from([("id", vec![id])]);
         builder = builder.filters(&filters);
     }
-    docker.list_containers(Some(builder.build())).await.map_err(map_err)
+    let mut all = docker.list_containers(Some(builder.build())).await.map_err(map_err)?;
+    // The file helpers of the storage browser live for a second; they're not part of the server.
+    all.retain(|c| !c.labels.as_ref().is_some_and(|l| l.contains_key(crate::volumes::LABEL_HELPER)));
+    Ok(all)
 }
 
 fn project_label(c: &ContainerSummary) -> Option<&str> {

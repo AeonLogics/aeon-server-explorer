@@ -255,6 +255,10 @@ impl AuditEntry {
             "image.pull" => "Pulled image",
             "image.remove" => "Removed image",
             "image.load" => "Uploaded image",
+            "volume.upload" => "Uploaded a file",
+            "volume.mkdir" => "Created a folder",
+            "volume.delete" => "Deleted a file",
+            "volume.copy" => "Copied files between storages",
             _ => "Other event",
         }
     }

@@ -10,6 +10,7 @@ use shared::stack::{
 
 use super::common::DockerProblem;
 use super::service_editor::{Editor, ImageInput, ServiceInspector};
+use super::volume_files::VolumeFiles;
 use crate::api::stacks::{get_images, get_stack, get_stacks, ApplyStack, CreateStack, SaveStack};
 use crate::components::icon::Ico;
 use crate::components::poll::{watch_session, Tick};
@@ -1021,6 +1022,8 @@ fn StorageInspector(
                     }
                     .into_any()
                 }}
+                <span class="field__label inspector__section">"FILES"</span>
+                <VolumeFiles stack storage=name.clone() />
                 <p class="inspector__hint">
                     "Like any new volume it starts empty and owned by root. If a service that runs as another user can't write to it, set Run as to 0, or add a small Runs once helper that sets the owner, and let that service start after it."
                 </p>
