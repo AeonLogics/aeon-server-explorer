@@ -35,6 +35,23 @@ pub struct PullEvent {
     pub done: bool,
 }
 
+// Uploads are streamed straight into Docker, so this only guards against runaway files.
+pub const MAX_UPLOAD: u64 = 8 * 1024 * 1024 * 1024;
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LoadedImage {
+    pub reference: String,
+    // Like "linux/amd64"; empty when Docker doesn't say.
+    pub platform: String,
+    pub fits: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LoadResult {
+    pub images: Vec<LoadedImage>,
+    pub server_platform: String,
+}
+
 // A repository name: registry host, path and name, without the tag.
 pub fn valid_repo(repo: &str) -> bool {
     !repo.is_empty()

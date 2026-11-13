@@ -3,18 +3,21 @@ use std::time::Duration;
 use bollard::Docker;
 use bollard::errors::Error;
 use bollard::query_parameters::{
-    CreateImageOptionsBuilder, ListImagesOptionsBuilder, RemoveImageOptions, SearchImagesOptionsBuilder,
+    CreateImageOptionsBuilder, ImportImageOptionsBuilder, ListImagesOptionsBuilder, RemoveImageOptions,
+    SearchImagesOptionsBuilder,
 };
+use bytes::Bytes;
 use chrono::{DateTime, Local};
 use futures::{Stream, StreamExt};
 use serde::Deserialize;
 use shared::errors::docker::DockerError;
-use shared::images::{HubResult, HubTag, LocalImage, PullEvent, is_docker_hub, valid_repo};
+use shared::images::{HubResult, HubTag, LoadResult, LoadedImage, LocalImage, PullEvent, is_docker_hub, valid_repo};
 use tokio::sync::mpsc;
 
 use crate::docker::{list_containers, map_err};
 
 const HUB_TIMEOUT: Duration = Duration::from_secs(10);
+const LOAD_TIMEOUT: Duration = Duration::from_secs(60 * 60);
 
 pub async fn local(docker: &Docker) -> Result<Vec<LocalImage>, DockerError> {
     let options = ListImagesOptionsBuilder::new().all(false).build();
@@ -170,6 +173,78 @@ pub async fn remove(docker: &Docker, reference: &str) -> Result<(), DockerError>
             "A container still uses this image. Remove or change that service first.".into(),
         )),
         Err(e) => Err(map_err(e)),
+    }
+}
+
+// Takes an archive made by `docker save` (plain or gzipped) and streams it straight into
+// Docker's load API: nothing is written to disk here, and Docker stores it where it always does.
+pub async fn load<S>(docker: &Docker, archive: S) -> Result<LoadResult, DockerError>
+where
+    S: Stream<Item = Result<Bytes, std::io::Error>> + Send + 'static,
+{
+    let docker = docker.clone().with_timeout(LOAD_TIMEOUT);
+    let options = ImportImageOptionsBuilder::new().quiet(true).build();
+    let mut progress = docker.import_image_stream(options, archive, None);
+
+    let mut references = Vec::new();
+    while let Some(item) = progress.next().await {
+        let info = item.map_err(load_err)?;
+        for line in info.stream.unwrap_or_default().lines() {
+            let loaded = line
+                .strip_prefix("Loaded image: ")
+                .or_else(|| line.strip_prefix("Loaded image ID: "));
+            if let Some(reference) = loaded {
+                references.push(reference.trim().to_string());
+            }
+        }
+    }
+    if references.is_empty() {
+        return Err(DockerError::Failed("Docker read the file but found no image in it.".into()));
+    }
+
+    let server_platform = server_platform(&docker).await;
+    let mut images = Vec::new();
+    for reference in references {
+        let platform = match docker.inspect_image(&reference).await {
+            Ok(image) => format!(
+                "{}/{}",
+                image.os.unwrap_or_default(),
+                image.architecture.unwrap_or_default()
+            ),
+            Err(_) => String::new(),
+        };
+        let fits = server_platform.is_empty() || platform.is_empty() || platform == server_platform;
+        images.push(LoadedImage { reference, platform, fits });
+    }
+    Ok(LoadResult { images, server_platform })
+}
+
+// Docker reports the machine as "x86_64" or "aarch64"; images say "amd64" or "arm64".
+async fn server_platform(docker: &Docker) -> String {
+    let Ok(info) = docker.info().await else { return String::new() };
+    let arch = match info.architecture.as_deref() {
+        Some("x86_64") => "amd64",
+        Some("aarch64") => "arm64",
+        Some(other) => other,
+        None => return String::new(),
+    };
+    format!("{}/{arch}", info.os_type.unwrap_or_else(|| "linux".into()))
+}
+
+fn load_err(err: Error) -> DockerError {
+    let message = match err {
+        Error::DockerStreamError { error } => error,
+        Error::DockerResponseServerError { message, .. } => message,
+        Error::RequestTimeoutError => return DockerError::Failed("Docker took too long to load the image.".into()),
+        other => return map_err(other),
+    };
+    let lower = message.to_lowercase();
+    if lower.contains("tar") || lower.contains("eof") || lower.contains("manifest") || lower.contains("gzip") {
+        DockerError::Failed(format!(
+            "That doesn't look like a complete image archive. Make one with docker save -o file.tar image:tag. ({message})"
+        ))
+    } else {
+        DockerError::Failed(message)
     }
 }
 

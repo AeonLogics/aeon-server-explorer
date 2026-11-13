@@ -8,3 +8,4 @@ pub mod sparkline;
 pub mod sse;
 pub mod stats;
 pub mod status;
+pub mod upload;

@@ -670,6 +670,14 @@
   font-size: $text-xs;
 }
 
+.field__hint.is-warn {
+  color: $warn;
+}
+
+.field__hint:empty {
+  display: none;
+}
+
 .inspector__command {
   justify-self: stretch;
 

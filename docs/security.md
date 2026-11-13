@@ -40,6 +40,10 @@ that mounts the whole disk. Everything below follows from that.
 - The app won't stop or redeploy its own container (labelled `dev.aeonlogics.explorer.self`),
   so it can't switch itself off mid-action.
 - `docker compose` runs with explicit arguments, never through a shell.
+- Image uploads (`POST /api/images/load`) need a signed-in admin and the content type
+  `application/x-docker-archive`: a form on another site can't send that, and a script on
+  another site would need a CORS preflight this server never answers. Uploads are capped at
+  8 GB, streamed into Docker without touching the disk, and audited.
 
 ## Managed stacks
 

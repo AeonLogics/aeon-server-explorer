@@ -361,6 +361,7 @@ name = "backend"
 version = "0.1.0"
 dependencies = [
  "bollard",
+ "bytes",
  "chrono",
  "futures",
  "reqwest 0.12.28",

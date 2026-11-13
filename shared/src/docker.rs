@@ -243,6 +243,7 @@ impl AuditEntry {
             "env.reveal_all" => "Revealed all env values",
             "image.pull" => "Pulled image",
             "image.remove" => "Removed image",
+            "image.load" => "Uploaded image",
             _ => "Other event",
         }
     }

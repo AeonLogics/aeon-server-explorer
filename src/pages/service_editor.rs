@@ -259,7 +259,7 @@ pub fn ServiceInspector(
         let user = user.get_untracked().trim().to_string();
         let spec = ServiceSpec {
             name,
-            image: image.get_untracked(),
+            image: image.get_untracked().trim().to_string(),
             restart: restart.get_untracked(),
             ports: out_ports,
             volumes: out_volumes,
@@ -359,27 +359,12 @@ pub fn ServiceInspector(
                 <div class="inspector__grid">
                     <label class="field">
                         <span class="field__label">"IMAGE"</span>
-                        <Transition fallback=|| ()>
-                            {move || {
-                                let mut list = images.get().and_then(Result::ok).unwrap_or_default();
-                                let current = image.get_untracked();
-                                if !current.is_empty() && !list.contains(&current) {
-                                    list.insert(0, current);
-                                }
-                                view! {
-                                    <select
-                                        class="field__input field__input--plain"
-                                        prop:value=move || image.get()
-                                        on:change=move |ev| {
-                                            image.set(event_target_value(&ev));
-                                            touch();
-                                        }
-                                    >
-                                        {list.into_iter().map(|i| view! { <option value=i.clone()>{i.clone()}</option> }).collect_view()}
-                                    </select>
-                                }
-                            }}
-                        </Transition>
+                        <ImageInput
+                            value=image
+                            images
+                            list_id=format!("image-options-{service}")
+                            on_input=Callback::new(move |_: ()| touch())
+                        />
                     </label>
                     <label class="field">
                         <span class="field__label">"RESTART"</span>
@@ -708,6 +693,57 @@ pub fn ServiceInspector(
         </div>
     }
     .into_any()
+}
+
+// Type to search the installed images (the browser suggests matches as you type), or pick one
+// from the list. Anything typed is checked against what's on the server when saving.
+#[component]
+pub fn ImageInput(
+    value: RwSignal<String>,
+    images: Resource<Result<Vec<String>, DockerError>>,
+    list_id: String,
+    #[prop(optional)] on_input: Option<Callback<()>>,
+) -> impl IntoView {
+    let options_id = list_id.clone();
+    view! {
+        <input
+            class="field__input field__input--plain"
+            type="text"
+            list=list_id
+            placeholder="Type to search, like postgres or redis"
+            autocomplete="off"
+            spellcheck="false"
+            prop:value=move || value.get()
+            on:input=move |ev| {
+                value.set(event_target_value(&ev));
+                if let Some(cb) = on_input {
+                    cb.run(());
+                }
+            }
+        />
+        <Transition fallback=|| ()>
+            {move || {
+                let list = images.get().and_then(Result::ok).unwrap_or_default();
+                let typed = value.get().trim().to_string();
+                let missing = !typed.is_empty() && !list.is_empty() && !list.contains(&typed);
+                let empty = list.is_empty();
+                view! {
+                    <datalist id=options_id.clone()>
+                        {list.into_iter().map(|i| view! { <option value=i.clone()></option> }).collect_view()}
+                    </datalist>
+                    <span class="field__hint" class:is-warn=missing>
+                        {if empty {
+                            "No images on this server yet. Pull or upload one in Images."
+                        } else if missing {
+                            "Not on this server. Use the full name with its tag, or pull it in Images first."
+                        } else {
+                            ""
+                        }}
+                    </span>
+                }
+            }}
+        </Transition>
+    }
 }
 
 // Says, for this exact row, who can reach the port.

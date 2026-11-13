@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use shared::stack::{check_spec, valid_name, ServiceSpec, StackSpec, StackState, StackSummary, StackView};
 
 use super::common::DockerProblem;
-use super::service_editor::{Editor, ServiceInspector};
+use super::service_editor::{Editor, ImageInput, ServiceInspector};
 use crate::api::stacks::{get_images, get_stack, get_stacks, ApplyStack, CreateStack, SaveStack};
 use crate::components::icon::Ico;
 use crate::components::poll::{watch_session, Tick};
@@ -638,7 +638,7 @@ fn AddService(
         };
         next.services.push(ServiceSpec {
             name: name.get_untracked().trim().to_string(),
-            image: image.get_untracked(),
+            image: image.get_untracked().trim().to_string(),
             restart: Default::default(),
             ports: Vec::new(),
             volumes: Vec::new(),
@@ -678,22 +678,7 @@ fn AddService(
             </label>
             <label class="field create__field create__field--wide">
                 <span class="field__label">"IMAGE"</span>
-                <Transition fallback=|| view! { <select class="field__input field__input--plain" disabled=true></select> }>
-                    {move || {
-                        let list = images.get().and_then(Result::ok).unwrap_or_default();
-                        let empty = list.is_empty();
-                        view! {
-                            <select
-                                class="field__input field__input--plain"
-                                prop:value=move || image.get()
-                                on:change=move |ev| image.set(event_target_value(&ev))
-                            >
-                                <option value="">{if empty { "No images on this server" } else { "Pick an installed image" }}</option>
-                                {list.into_iter().map(|i| view! { <option value=i.clone()>{i.clone()}</option> }).collect_view()}
-                            </select>
-                        }
-                    }}
-                </Transition>
+                <ImageInput value=image images list_id="image-options-new".to_string() />
             </label>
             <button
                 class="btn btn--secondary"

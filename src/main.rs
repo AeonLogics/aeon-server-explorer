@@ -27,11 +27,11 @@ fn main() {
 async fn serve() {
     use std::sync::Arc;
 
-    use axum::routing::get;
+    use axum::routing::{get, post};
     use axum::Router;
     use explorer_lib::app::*;
     use explorer_lib::state::AppState;
-    use explorer_lib::{middleware, sse, startup};
+    use explorer_lib::{middleware, sse, startup, upload};
     use leptos::logging::log;
     use leptos::prelude::*;
     use leptos_axum::{generate_route_list, LeptosRoutes};
@@ -91,6 +91,7 @@ async fn serve() {
         .route("/api/logs/{container}", get(sse::logs))
         .route("/api/stats/{container}", get(sse::stats))
         .route("/api/pull", get(sse::pull))
+        .route("/api/images/load", post(upload::load_image))
         .leptos_routes(&app_state, routes, {
             let leptos_options = app_state.leptos_options.clone();
             move || shell(leptos_options.clone())

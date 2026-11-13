@@ -233,6 +233,63 @@
   grid-template-columns: minmax(14rem, 2fr) 6rem 7rem 8rem 11rem;
 }
 
+.upload {
+  display: grid;
+  gap: space(3);
+  margin-top: space(4);
+  padding: space(5) space(6);
+  @include sheet;
+
+  &__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: space(4);
+  }
+
+  &__text {
+    display: grid;
+    gap: space(1);
+
+    code {
+      padding: 0.05rem 0.3rem;
+      background: $sunken-2;
+      border-radius: 3px;
+      font-size: $text-xs;
+    }
+  }
+
+  &__pick {
+    flex: none;
+    cursor: pointer;
+
+    &.is-disabled {
+      opacity: 0.5;
+      pointer-events: none;
+    }
+
+    &:focus-within {
+      outline: 2px solid rgba(91, 43, 176, 0.25);
+    }
+  }
+
+  &__status {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: space(3);
+  }
+
+  &__done {
+    display: grid;
+    gap: space(2);
+
+    .flash {
+      margin-top: 0;
+    }
+  }
+}
+
 @include down(md) {
   .images-table .table__row {
     grid-template-columns: minmax(0, 1fr) auto;

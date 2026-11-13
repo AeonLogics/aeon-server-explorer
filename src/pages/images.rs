@@ -1,14 +1,15 @@
 use std::collections::BTreeMap;
 
 use leptos::prelude::*;
-use shared::images::{HubResult, LocalImage, PullEvent, is_docker_hub, valid_repo, valid_tag};
+use shared::images::{HubResult, LoadResult, LocalImage, PullEvent, is_docker_hub, valid_repo, valid_tag};
 
 use super::common::DockerProblem;
-use crate::api::images::{get_local_images, hub_tags, search_hub, DeleteImage, SearchHub};
+use crate::api::images::{get_local_images, hub_tags, DeleteImage, SearchHub};
 use crate::components::icon::Ico;
 use crate::components::poll::{settled, watch_session, Tick};
 use crate::components::sse::{connect, SseEvent};
 use crate::components::stats::bytes;
+use crate::components::upload::{send_picked, UploadEvent, UploadHandle};
 
 #[component]
 pub fn ImagesPage() -> impl IntoView {
@@ -34,6 +35,7 @@ pub fn ImagesPage() -> impl IntoView {
             </header>
 
             <Store on_pulled=Callback::new(move |_: ()| refresh.update(|r| *r += 1)) />
+            <Upload on_loaded=Callback::new(move |_: ()| refresh.update(|r| *r += 1)) />
 
             <h2 class="label board-label">"On this server"</h2>
             {move || removed_error().map(|e| view! { <p class="flash is-err" role="alert">{e}</p> })}
@@ -148,6 +150,137 @@ fn LocalTable(list: Vec<LocalImage>, remove: ServerAction<DeleteImage>) -> impl 
                 <span class="table__note is-calm">"Total"</span>
                 <span class="table__mono">{bytes(total as f64)}</span>
             </div>
+        </section>
+    }
+}
+
+#[derive(Clone, PartialEq)]
+enum UploadState {
+    Idle,
+    Sending { name: String, sent: f64, total: f64 },
+    Loading { name: String },
+    Done(LoadResult),
+    Failed(String),
+}
+
+// An image built elsewhere and saved with `docker save`, streamed straight into Docker here.
+#[component]
+fn Upload(on_loaded: Callback<()>) -> impl IntoView {
+    let state = RwSignal::new(UploadState::Idle);
+    let handle = StoredValue::new(None::<UploadHandle>);
+    let busy = move || matches!(state.get(), UploadState::Sending { .. } | UploadState::Loading { .. });
+
+    let on_pick = move |ev: leptos::ev::Event| {
+        let started = send_picked(&ev, "/api/images/load", "application/x-docker-archive", move |event| match event {
+            UploadEvent::Progress { sent, total } => state.update(|s| {
+                let all_sent = matches!(s, UploadState::Sending { total: t, .. } if *t > 0.0 && sent >= *t);
+                if all_sent {
+                    if let UploadState::Sending { name, .. } = std::mem::replace(s, UploadState::Idle) {
+                        *s = UploadState::Loading { name };
+                    }
+                } else if let UploadState::Sending { sent: so_far, total: size, .. } = s {
+                    *so_far = sent;
+                    if total > 0.0 {
+                        *size = total;
+                    }
+                }
+            }),
+            UploadEvent::Done(Ok(json)) => match serde_json::from_str::<LoadResult>(&json) {
+                Ok(result) => {
+                    state.set(UploadState::Done(result));
+                    on_loaded.run(());
+                }
+                Err(_) => state.set(UploadState::Failed("The server's answer didn't make sense.".into())),
+            },
+            UploadEvent::Done(Err(message)) => state.set(UploadState::Failed(message)),
+        });
+        if let Some((name, size, started)) = started {
+            state.set(UploadState::Sending { name, sent: 0.0, total: size });
+            handle.set_value(Some(started));
+        }
+    };
+
+    let cancel = move |_| {
+        handle.set_value(None);
+        state.set(UploadState::Idle);
+    };
+
+    view! {
+        <section class="upload" aria-label="Upload an image">
+            <div class="upload__head">
+                <div class="upload__text">
+                    <strong>"Upload an image from your machine"</strong>
+                    <span class="store__hint">
+                        "Save it first with "<code>"docker save -o app.tar app:latest"</code>
+                        ". Plain .tar and .tar.gz both work; it goes straight into Docker."
+                    </span>
+                </div>
+                <label class="btn btn--secondary upload__pick" class:is-disabled=busy>
+                    <Ico icon=icondata::LuUpload />
+                    "Choose file"
+                    <input
+                        type="file"
+                        class="sr-only"
+                        accept=".tar,.gz,.tgz,application/x-tar,application/gzip"
+                        disabled=busy
+                        on:change=on_pick
+                    />
+                </label>
+            </div>
+            {move || match state.get() {
+                UploadState::Idle => None,
+                UploadState::Sending { name, sent, total } => {
+                    let percent = if total > 0.0 { (sent / total * 100.0).min(100.0) } else { 0.0 };
+                    Some(view! {
+                        <div class="store__progress">
+                            <div class="meter"><span class="meter__fill" style=format!("width: {:.0}%", percent.max(2.0))></span></div>
+                            <div class="upload__status">
+                                <span class="store__status">
+                                    {format!("{percent:.0}% · uploading {name} · {} of {}", bytes(sent), bytes(total))}
+                                </span>
+                                <button type="button" class="tool-btn" on:click=cancel>"Cancel"</button>
+                            </div>
+                        </div>
+                    }
+                    .into_any())
+                }
+                UploadState::Loading { name } => Some(view! {
+                    <div class="store__progress">
+                        <div class="meter"><span class="meter__fill" style="width: 100%"></span></div>
+                        <span class="store__status">{format!("Uploaded. Docker is loading {name}…")}</span>
+                    </div>
+                }
+                .into_any()),
+                UploadState::Done(result) => {
+                    let server = result.server_platform.clone();
+                    Some(view! {
+                        <div class="upload__done">
+                            {result
+                                .images
+                                .into_iter()
+                                .map(|image| {
+                                    let platform = if image.platform.is_empty() { String::new() } else { format!(" ({})", image.platform) };
+                                    if image.fits {
+                                        view! { <p class="flash is-ok">{format!("{}{platform} is on the server and ready for Add service.", image.reference)}</p> }.into_any()
+                                    } else {
+                                        view! {
+                                            <p class="flash is-err">
+                                                {format!(
+                                                    "{} is built for {}, but this server is {server}, so it won't run here. Rebuild it with docker build --platform {server}.",
+                                                    image.reference, image.platform
+                                                )}
+                                            </p>
+                                        }
+                                        .into_any()
+                                    }
+                                })
+                                .collect_view()}
+                        </div>
+                    }
+                    .into_any())
+                }
+                UploadState::Failed(message) => Some(view! { <p class="flash is-err">{message}</p> }.into_any()),
+            }}
         </section>
     }
 }

@@ -22,7 +22,8 @@ SSH tunnel, never exposed to a network.
   storage, env (one by one or as a whole file), restart policy, start command and the user
   it runs as. Edit several services, then **Save & deploy** once. The app writes the compose
   file, deploys it, and keeps the last deploy's full output.
-- **Images:** what's on the server, Docker Hub search with tags, pulls with live progress.
+- **Images:** what's on the server, Docker Hub search with tags, pulls with live progress, and
+  uploads of images you built yourself (`docker save` → upload → ready to use).
 - **Audit log:** sign-ins, actions, deploys, pulls and revealed values.
 
 More in [docs/features.md](docs/features.md).
@@ -34,6 +35,11 @@ More in [docs/features.md](docs/features.md).
 - [ ] **Cloudflare Tunnel:** run `cloudflared` from a tunnel token and join it to your stacks'
   networks; later, a "public on the internet" switch per port that creates the route and DNS
   record. The explorer itself always stays SSH-only.
+- [ ] **Scheduler:** run an image on a schedule (daily, weekly, every N hours), with each
+  run's log and result, catching up after the server was off. Your own tools as one image with
+  subcommands, like `my-tools backup`.
+- [ ] **Backups:** share a service's storage read-only with another service, so a backup image
+  such as `offen/docker-volume-backup` can copy it to Cloudflare R2, B2 or S3.
 - [ ] Delete a stack from the UI
 - [ ] Storage browser: what's inside a volume and how full it is
 - [ ] Show which containers use an image before removing it

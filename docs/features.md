@@ -59,6 +59,11 @@ Stacks the app creates and owns. See [managed-stacks.md](managed-stacks.md) for 
 - **Docker Hub:** search with official images first, pick a tag (the 30 most recent, with
   sizes) or type one, and **Pull to server** with a live progress bar. Typing `name:tag` goes
   straight to the pull. A pull keeps running on the server even if you close the tab.
+- **Upload an image:** build an image on your own machine, save it with
+  `docker save -o app.tar app:latest`, and upload the `.tar` (or a `.tar.gz`). The file is
+  streamed straight into Docker with a progress bar, so the server needs no space for a copy.
+  Afterwards the app shows each loaded image with its platform and warns when it was built for
+  a different CPU than the server's (for example `linux/arm64` on an `amd64` server).
 
 ## Audit log
 
